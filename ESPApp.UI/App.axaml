@@ -1,0 +1,51 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="ESPApp.UI.App">
+
+    <Application.Resources>
+        <Color x:Key="BgMain">#1a1a1a</Color>
+        <Color x:Key="BgCard">#242424</Color>
+        <Color x:Key="BgTerminal">#141414</Color>
+        
+        <Color x:Key="BorderColor">#333333</Color>
+        <Color x:Key="AccentColor">#4a9eff</Color>
+        <Color x:Key="TextMain">#e0e0e0</Color>
+        <Color x:Key="TextMuted">#999999</Color>
+
+        <SolidColorBrush x:Key="BrushBgMain" Color="{StaticResource BgMain}"/>
+        <SolidColorBrush x:Key="BrushBgCard" Color="{StaticResource BgCard}"/>
+        <SolidColorBrush x:Key="BrushBgTerminal" Color="{StaticResource BgTerminal}"/>
+        <SolidColorBrush x:Key="BrushBorder" Color="{StaticResource BorderColor}"/>
+        <SolidColorBrush x:Key="BrushAccent" Color="{StaticResource AccentColor}"/>
+        <SolidColorBrush x:Key="BrushTextMain" Color="{StaticResource TextMain}"/>
+        <SolidColorBrush x:Key="BrushTextMuted" Color="{StaticResource TextMuted}"/>
+    </Application.Resources>
+
+    <Application.Styles>
+        <FluentTheme />
+        
+        <Style Selector="Button">
+            <Setter Property="Background" Value="{StaticResource BrushBgCard}"/>
+            <Setter Property="Foreground" Value="{StaticResource BrushTextMain}"/>
+            <Setter Property="CornerRadius" Value="4"/>
+            <Setter Property="BorderBrush" Value="{StaticResource BrushBorder}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="10,6"/>
+        </Style>
+        <Style Selector="Button:pointerover">
+            <Setter Property="Background" Value="#2d2d2d"/>
+            <Setter Property="BorderBrush" Value="{StaticResource BrushAccent}"/>
+        </Style>
+
+        <Style Selector="TextBox, ComboBox">
+            <Setter Property="Background" Value="{StaticResource BrushBgTerminal}"/>
+            <Setter Property="Foreground" Value="{StaticResource BrushTextMain}"/>
+            <Setter Property="CornerRadius" Value="4"/>
+            <Setter Property="BorderBrush" Value="{StaticResource BrushBorder}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+        </Style>
+        <Style Selector="TextBox:focus, ComboBox:focus">
+            <Setter Property="BorderBrush" Value="{StaticResource BrushAccent}"/>
+        </Style>
+    </Application.Styles>
+</Application>

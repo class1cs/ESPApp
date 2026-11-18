@@ -1,0 +1,361 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:ESPApp.UI.ViewModels"
+        Width="860" Height="820"
+        MinWidth="720" MinHeight="640"
+        x:Class="ESPApp.UI.Views.MainWindow"
+        x:DataType="vm:MainViewModel"
+        Title="ESP Tool GUI Edition"
+        FontFamily="Segoe UI, Roboto, Helvetica Neue, Arial, sans-serif"
+        FontSize="14"
+        Background="{StaticResource BrushBgMain}"
+        Foreground="{StaticResource BrushTextMain}"
+        WindowStartupLocation="CenterScreen">
+
+    <Window.Styles>
+        <Style Selector="Border.card">
+            <Setter Property="Background" Value="{StaticResource BrushBgCard}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource BrushBorder}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Padding" Value="16"/>
+        </Style>
+        <Style Selector="TabControl">
+            <Setter Property="Padding" Value="0"/>
+        </Style>
+        <Style Selector="Expander">
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+        </Style>
+        <Style Selector="ScrollViewer">
+            <Setter Property="HorizontalScrollBarVisibility" Value="Disabled"/>
+        </Style>
+        <Style Selector="TextBlock.muted">
+            <Setter Property="Foreground" Value="{StaticResource BrushTextMuted}"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+        <Style Selector="TextBlock.hint">
+            <Setter Property="Foreground" Value="{StaticResource BrushTextMuted}"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+        </Style>
+        <Style Selector="TextBlock.title">
+            <Setter Property="FontSize" Value="15"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+        </Style>
+        <Style Selector="ComboBox">
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+        </Style>
+        <Style Selector="TextBox">
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+        <Style Selector="CheckBox">
+            <Setter Property="Margin" Value="0,0,16,0"/>
+        </Style>
+        <Style Selector="Button">
+            <Setter Property="Padding" Value="14,6"/>
+        </Style>
+        <Style Selector="Button.accent">
+            <Setter Property="Background" Value="{StaticResource BrushAccent}"/>
+            <Setter Property="Foreground" Value="#ffffff"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.accent:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="#3b82f6"/>
+            <Setter Property="TextElement.Foreground" Value="#ffffff"/>
+        </Style>
+    </Window.Styles>
+
+    <Grid Margin="24" RowDefinitions="Auto,3*,Auto,2*" RowSpacing="10">
+
+        <Border Grid.Row="0" Classes="card">
+            <StackPanel Spacing="6">
+                <Grid ColumnDefinitions="Auto,*,Auto,*,Auto,*" ColumnSpacing="10">
+                    <TextBlock Grid.Column="0" Classes="muted" Text="Порт"/>
+                    <DockPanel Grid.Column="1">
+                        <Button DockPanel.Dock="Right" Content="↻" Margin="6,0,0,0" Command="{Binding RefreshPortsCommand}"/>
+                        <ComboBox ItemsSource="{Binding AvailablePorts}" SelectedItem="{Binding SelectedPort}"/>
+                    </DockPanel>
+                    <TextBlock Grid.Column="2" Classes="muted" Text="Чип"/>
+                    <ComboBox Grid.Column="3" ItemsSource="{Binding Chips}" SelectedItem="{Binding SelectedChip}"/>
+                    <TextBlock Grid.Column="4" Classes="muted" Text="Скорость"/>
+                    <ComboBox Grid.Column="5" ItemsSource="{Binding Bauds}" SelectedItem="{Binding SelectedBaud}"/>
+                </Grid>
+
+                <Expander Header="Дополнительно" Padding="0,6,0,0">
+                    <Grid ColumnDefinitions="Auto,*,Auto,*,Auto,70" RowDefinitions="Auto,Auto" ColumnSpacing="10" RowSpacing="8">
+                        <TextBlock Grid.Row="0" Grid.Column="0" Classes="muted" Text="До"/>
+                        <ComboBox Grid.Row="0" Grid.Column="1" ItemsSource="{Binding BeforeModes}" SelectedItem="{Binding SelectedBefore}"/>
+                        <TextBlock Grid.Row="0" Grid.Column="2" Classes="muted" Text="После"/>
+                        <ComboBox Grid.Row="0" Grid.Column="3" ItemsSource="{Binding AfterModes}" SelectedItem="{Binding SelectedAfter}"/>
+                        <TextBlock Grid.Row="0" Grid.Column="4" Classes="muted" Text="Попыток"/>
+                        <TextBox Grid.Row="0" Grid.Column="5" Text="{Binding ConnectAttempts}" HorizontalContentAlignment="Center"/>
+                        <WrapPanel Grid.Row="1" Grid.ColumnSpan="6">
+                            <CheckBox Content="Без стаба" IsChecked="{Binding NoStub}"/>
+                            <CheckBox Content="Подробный вывод" IsChecked="{Binding Trace}"/>
+                        </WrapPanel>
+                    </Grid>
+                </Expander>
+            </StackPanel>
+        </Border>
+
+        <TabControl Grid.Row="1" Padding="0" Margin="0" IsEnabled="{Binding !IsBusy}">
+
+            <TabItem Header="Прошивка">
+                <Grid RowDefinitions="*,Auto,Auto" RowSpacing="10" Margin="0,10,0,0">
+                    <Border Grid.Row="0" Classes="card">
+                        <DockPanel>
+                            <TextBlock DockPanel.Dock="Top" Classes="title" Text="Файлы к записи" Margin="0,0,0,8"/>
+                            <Button DockPanel.Dock="Bottom" Content="+ Ещё файл" HorizontalAlignment="Left"
+                                    Command="{Binding AddFlashItemCommand}" Margin="0,4,0,0"/>
+                            <ScrollViewer>
+                                <ItemsControl ItemsSource="{Binding FlashItems}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:FlashItem">
+                                            <Grid ColumnDefinitions="100,*,Auto,Auto" ColumnSpacing="8" Margin="0,0,0,8">
+                                                <TextBox Grid.Column="0" Text="{Binding Address}" Watermark="0x1000" HorizontalContentAlignment="Center"/>
+                                                <TextBox Grid.Column="1" Text="{Binding FilePath}" Watermark="Файл прошивки .bin"/>
+                                                <Button Grid.Column="2" Content="Выбрать" Command="{Binding BrowseCommand}"/>
+                                                <Button Grid.Column="3" Content="✕" Command="{Binding RemoveCommand}"/>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                        </DockPanel>
+                    </Border>
+
+                    <Border Grid.Row="1" Classes="card">
+                        <Expander Header="Параметры записи">
+                            <StackPanel Spacing="8" Margin="0,8,0,0">
+                                <Grid ColumnDefinitions="Auto,*,Auto,*,Auto,*" ColumnSpacing="10">
+                                    <TextBlock Grid.Column="0" Classes="muted" Text="Режим"/>
+                                    <ComboBox Grid.Column="1" ItemsSource="{Binding FlashModes}" SelectedItem="{Binding FlashMode}"/>
+                                    <TextBlock Grid.Column="2" Classes="muted" Text="Частота"/>
+                                    <ComboBox Grid.Column="3" ItemsSource="{Binding FlashFreqs}" SelectedItem="{Binding FlashFreq}"/>
+                                    <TextBlock Grid.Column="4" Classes="muted" Text="Размер"/>
+                                    <ComboBox Grid.Column="5" ItemsSource="{Binding FlashSizes}" SelectedItem="{Binding FlashSize}"/>
+                                </Grid>
+                                <WrapPanel>
+                                    <CheckBox Content="Стереть всё перед записью" IsChecked="{Binding EraseAll}"/>
+                                    <CheckBox Content="Не проверять после записи" IsChecked="{Binding NoVerify}"/>
+                                    <CheckBox Content="Без сжатия" IsChecked="{Binding NoCompress}"/>
+                                    <CheckBox Content="Принудительно" IsChecked="{Binding Force}"/>
+                                </WrapPanel>
+                            </StackPanel>
+                        </Expander>
+                    </Border>
+
+                    <Grid Grid.Row="2" ColumnDefinitions="Auto,Auto,*" ColumnSpacing="12">
+                        <Button Grid.Column="0" Content="Проверить" Command="{Binding VerifyFlashCommand}" Height="38"
+                                VerticalContentAlignment="Center"/>
+                        <CheckBox Grid.Column="1" Content="показать отличия" IsChecked="{Binding VerifyDiff}" VerticalAlignment="Center"/>
+                        <Button Grid.Column="2" Classes="accent" Content="Прошить" Command="{Binding FlashCommand}"
+                                HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                                VerticalContentAlignment="Center" Height="38"/>
+                    </Grid>
+                </Grid>
+            </TabItem>
+
+            <TabItem Header="Память">
+                <ScrollViewer>
+                    <StackPanel Margin="0,10,0,0" Spacing="10">
+
+                        <Border Classes="card">
+                            <StackPanel Spacing="8">
+                                <TextBlock Classes="title" Text="Резервное копирование прошивки"/>
+                                <Grid ColumnDefinitions="Auto,100,Auto,100,*,Auto" ColumnSpacing="10">
+                                    <TextBlock Grid.Column="0" Classes="muted" Text="С адреса"/>
+                                    <TextBox Grid.Column="1" Text="{Binding ReadAddress}" Watermark="0x0"/>
+                                    <TextBlock Grid.Column="2" Classes="muted" Text="Размер"/>
+                                    <TextBox Grid.Column="3" Text="{Binding ReadSize}" Watermark="ALL (Вся память)"/>
+                                    <TextBox Grid.Column="4" Text="{Binding ReadPath}" Watermark="Куда сохранить"/>
+                                    <Button Grid.Column="5" Content="Выбрать" Command="{Binding BrowseSaveCommand}" CommandParameter="ReadPath"/>
+                                </Grid>
+                                <Button Content="Сохранить" Command="{Binding ReadFlashCommand}" HorizontalAlignment="Left"/>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Classes="card">
+                            <StackPanel Spacing="8">
+                                <TextBlock Classes="title" Text="Стереть память"/>
+                                <Button Content="Стереть всю память" Command="{Binding EraseFlashCommand}" HorizontalAlignment="Left"/>
+
+                                <Separator Margin="0,6" Background="{StaticResource BrushBorder}"/>
+
+                                <TextBlock Classes="hint" Text="Стереть часть память"/>
+                                <Grid ColumnDefinitions="Auto,120,Auto,120,Auto" ColumnSpacing="10">
+                                    <TextBlock Grid.Column="0" Classes="muted" Text="С адреса"/>
+                                    <TextBox Grid.Column="1" Text="{Binding EraseRegionAddress}" Watermark="0x10000"/>
+                                    <TextBlock Grid.Column="2" Classes="muted" Text="Размер"/>
+                                    <TextBox Grid.Column="3" Text="{Binding EraseRegionSize}" Watermark="0x1000"/>
+                                    <Button Grid.Column="4" Content="Стереть" Command="{Binding EraseRegionCommand}"/>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Classes="card">
+                            <StackPanel Spacing="8">
+                                <TextBlock Classes="title" Text="Защита флеш-памяти"/>
+                                <StackPanel Orientation="Horizontal" Spacing="10">
+                                    <TextBlock Classes="muted" Text="Байт"/>
+                                    <ComboBox Width="70" ItemsSource="{Binding StatusBytesOptions}" SelectedItem="{Binding SelectedStatusBytes}"/>
+                                    <Button Content="Посмотреть" Command="{Binding ReadFlashStatusCommand}"/>
+                                    <TextBox Width="110" Text="{Binding StatusValue}" Watermark="Значение"/>
+                                    <CheckBox Content="навсегда" IsChecked="{Binding StatusNonVolatile}" Margin="0"/>
+                                    <Button Content="Записать" Command="{Binding WriteFlashStatusCommand}"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+
+            <TabItem Header="О чипе">
+                <ScrollViewer>
+                    <StackPanel Margin="0,10,0,0" Spacing="10">
+
+                        <Border Classes="card">
+                            <StackPanel Spacing="8">
+                                <TextBlock Classes="title" Text="Информация о плате"/>
+                                <WrapPanel>
+                                    <Button Content="Модель чипа" Command="{Binding ChipIdCommand}" Margin="0,0,8,8"/>
+                                    <Button Content="Флеш-память" Command="{Binding FlashIdCommand}" Margin="0,0,8,8"/>
+                                    <Button Content="MAC-адрес" Command="{Binding ReadMacCommand}" Margin="0,0,8,8"/>
+                                    <Button Content="Защита чипа" Command="{Binding SecurityInfoCommand}" Margin="0,0,8,8"/>
+                                    <Button Content="Версия esptool" Command="{Binding VersionCommand}" Margin="0,0,8,8"/>
+                                </WrapPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Classes="card">
+                            <StackPanel Spacing="8">
+                                <TextBlock Classes="title" Text="Паспорт флеш-памяти"/>
+                                <Grid ColumnDefinitions="Auto,100,Auto,100,Auto" ColumnSpacing="10">
+                                    <TextBlock Grid.Column="0" Classes="muted" Text="Адрес"/>
+                                    <TextBox Grid.Column="1" Text="{Binding SfdpAddress}" Watermark="0x0"/>
+                                    <TextBlock Grid.Column="2" Classes="muted" Text="Длина"/>
+                                    <TextBox Grid.Column="3" Text="{Binding SfdpLength}" Watermark="4"/>
+                                    <Button Grid.Column="4" Content="Прочитать" Command="{Binding ReadSfdpCommand}"/>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+
+            <TabItem Header="Ещё">
+                <ScrollViewer>
+                    <StackPanel Margin="0,10,0,0" Spacing="10">
+
+                        <Border Classes="card">
+                            <StackPanel Spacing="8">
+                                <TextBlock Classes="title" Text="Что внутри .bin"/>
+                                <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="10">
+                                    <TextBox Grid.Column="0" Text="{Binding ImageInfoPath}" Watermark="Файл .bin"/>
+                                    <Button Grid.Column="1" Content="Выбрать" Command="{Binding BrowseOpenCommand}" CommandParameter="ImageInfoPath"/>
+                                    <Button Grid.Column="2" Content="Показать" Command="{Binding ImageInfoCommand}"/>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Classes="card">
+                            <StackPanel Spacing="8">
+                                <TextBlock Classes="title" Text="Склеить несколько .bin в один"/>
+                                <TextBlock Classes="hint" Text="Файлы и адреса берутся из параметров записи. Выбранный чип обязателен!"/>
+                                <Grid ColumnDefinitions="*,Auto,100,Auto" ColumnSpacing="10">
+                                    <TextBox Grid.Column="0" Text="{Binding MergeOutputPath}" Watermark="Куда сохранить"/>
+                                    <Button Grid.Column="1" Content="Выбрать" Command="{Binding BrowseSaveCommand}" CommandParameter="MergeOutputPath"/>
+                                    <ComboBox Grid.Column="2" ItemsSource="{Binding MergeFormats}" SelectedItem="{Binding SelectedMergeFormat}"/>
+                                    <Button Grid.Column="3" Content="Склеить" Command="{Binding MergeBinCommand}"/>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Classes="card">
+                            <StackPanel Spacing="8">
+                                <TextBlock Classes="title" Text="Собрать .bin из .elf"/>
+                                <TextBlock Classes="hint" Text="Режим, частота и размер берутся из параметров записи. Выбранный чип обязателен!"/>
+                                <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="10" RowSpacing="8">
+                                    <TextBox Grid.Row="0" Grid.Column="0" Text="{Binding ElfPath}" Watermark="Откуда: файл .elf"/>
+                                    <Button Grid.Row="0" Grid.Column="1" Content="Выбрать" Command="{Binding BrowseOpenCommand}" CommandParameter="ElfPath"/>
+                                    <TextBox Grid.Row="1" Grid.Column="0" Text="{Binding ElfOutputPath}" Watermark="Куда сохранить .bin"/>
+                                    <Button Grid.Row="1" Grid.Column="1" Content="Выбрать" Command="{Binding BrowseSaveCommand}" CommandParameter="ElfOutputPath"/>
+                                </Grid>
+                                <Button Content="Собрать" Command="{Binding Elf2ImageCommand}" HorizontalAlignment="Left"/>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Classes="card">
+                            <StackPanel Spacing="8">
+                                <TextBlock Classes="title" Text="Значения в памяти чипа"/>
+                                <Grid ColumnDefinitions="*,*,*" ColumnSpacing="10">
+                                    <TextBox Grid.Column="0" Text="{Binding MemAddress}" Watermark="Адрес"/>
+                                    <TextBox Grid.Column="1" Text="{Binding MemValue}" Watermark="Значение"/>
+                                    <TextBox Grid.Column="2" Text="{Binding MemMask}" Watermark="Маска (необязательна)"/>
+                                </Grid>
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <Button Content="Прочитать" Command="{Binding ReadMemCommand}"/>
+                                    <Button Content="Записать" Command="{Binding WriteMemCommand}"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Classes="card">
+                            <StackPanel Spacing="8">
+                                <TextBlock Classes="title" Text="Выгрузить часть памяти по адресу в файл"/>
+                                <Grid ColumnDefinitions="110,110,*,Auto" ColumnSpacing="10">
+                                    <TextBox Grid.Column="0" Text="{Binding DumpAddress}" Watermark="Адрес"/>
+                                    <TextBox Grid.Column="1" Text="{Binding DumpSize}" Watermark="Размер"/>
+                                    <TextBox Grid.Column="2" Text="{Binding DumpPath}" Watermark="Файл сохранения"/>
+                                    <Button Grid.Column="3" Content="Выбрать" Command="{Binding BrowseSaveCommand}" CommandParameter="DumpPath"/>
+                                </Grid>
+                                <Button Content="Выгрузить" Command="{Binding DumpMemCommand}" HorizontalAlignment="Left"/>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Classes="card">
+                            <StackPanel Spacing="8">
+                                <TextBlock Classes="title" Text="Запустить программу в RAM без записи в флеш-память"/>
+                                <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="10">
+                                    <TextBox Grid.Column="0" Text="{Binding LoadRamPath}" Watermark="Файл .bin"/>
+                                    <Button Grid.Column="1" Content="Выбрать" Command="{Binding BrowseOpenCommand}" CommandParameter="LoadRamPath"/>
+                                    <Button Grid.Column="2" Content="Запустить" Command="{Binding LoadRamCommand}"/>
+                                    <Button Grid.Column="3" Content="Перезапустить плату" Command="{Binding RunCodeCommand}"/>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+        </TabControl>
+
+        <ProgressBar Grid.Row="2" IsIndeterminate="True" IsVisible="{Binding IsBusy}" Height="3"/>
+
+        <Border Grid.Row="3" Background="{StaticResource BrushBgTerminal}"
+                BorderBrush="{StaticResource BrushBorder}" BorderThickness="1"
+                CornerRadius="8" Padding="16,12" MinHeight="180">
+            <DockPanel>
+                <DockPanel DockPanel.Dock="Top" Margin="2,0,0,6">
+                    <Button DockPanel.Dock="Right" Content="Очистить" FontSize="12" Padding="10,2"
+                            Command="{Binding ClearLogCommand}"/>
+                    <Button DockPanel.Dock="Right" Content="Остановить" FontSize="12" Padding="10,2" Margin="0,0,8,0"
+                            IsVisible="{Binding IsBusy}" Command="{Binding CancelCommand}"/>
+                    <TextBlock Classes="muted" Text="Лог" FontSize="12"/>
+                </DockPanel>
+                <TextBox Text="{Binding ConsoleOutput}"
+                         IsReadOnly="True"
+                         AcceptsReturn="True"
+                         TextWrapping="Wrap"
+                         HorizontalAlignment="Stretch"
+                         VerticalAlignment="Stretch"
+                         Background="Transparent"
+                         Foreground="#e0e0e0"
+                         BorderThickness="0"
+                         FontFamily="Consolas, Menlo, monospace"
+                         FontSize="12"/>
+            </DockPanel>
+        </Border>
+    </Grid>
+</Window>
