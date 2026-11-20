@@ -1,5 +1,4 @@
 ﻿using System;
-using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Text;
@@ -12,20 +11,28 @@ namespace ESPApp.Infrastructure.Services
     public class EspToolService : IEspToolService
     {
         private readonly string _pythonPath;
+        private readonly string _bundledDirectory;
+        private (string FileName, string Prefix)? _launcher;
 
-        public EspToolService(string pythonPath = "python")
+        public EspToolService(string pythonPath = "python", string? bundledDirectory = null)
         {
             _pythonPath = pythonPath;
+            _bundledDirectory = bundledDirectory ?? Path.Combine(AppContext.BaseDirectory, "esptool");
         }
 
         public async Task ExecuteCommandAsync(string arguments, Action<string> onOutputLine, CancellationToken cancellationToken = default)
         {
-            var bundled = FindBundledEsptool();
+            var launcher = await ResolveLauncherAsync();
+            if (launcher is null)
+            {
+                onOutputLine("Ошибка: esptool не найден. Установите Python и выполните: pip install esptool, либо положите esptool.exe в папку «esptool» рядом с программой.");
+                return;
+            }
 
             var startInfo = new ProcessStartInfo
             {
-                FileName = bundled ?? _pythonPath,
-                Arguments = bundled is null ? $"-u -m esptool {arguments}" : arguments,
+                FileName = launcher.Value.FileName,
+                Arguments = launcher.Value.Prefix + arguments,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
                 StandardOutputEncoding = Encoding.UTF8,
@@ -42,7 +49,11 @@ namespace ESPApp.Infrastructure.Services
             {
                 if (!string.IsNullOrEmpty(args.Data))
                 {
-                    onOutputLine(args.Data);
+                    var line = args.Data.TrimEnd();
+                    if (line.Length > 0)
+                    {
+                        onOutputLine(line);
+                    }
                 }
             };
 
@@ -50,7 +61,11 @@ namespace ESPApp.Infrastructure.Services
             {
                 if (!string.IsNullOrEmpty(args.Data))
                 {
-                    onOutputLine($"[ERR] {args.Data}");
+                    var line = args.Data.TrimEnd();
+                    if (line.Length > 0)
+                    {
+                        onOutputLine($"[ERR] {line}");
+                    }
                 }
             };
 
@@ -71,22 +86,68 @@ namespace ESPApp.Infrastructure.Services
                 TryKill(process);
                 onOutputLine("Операция отменена.");
             }
-            catch (Win32Exception)
-            {
-                onOutputLine(bundled is null
-                    ? $"Ошибка: не найден «{_pythonPath}». Установите Python и выполните: pip install esptool"
-                    : $"Ошибка: не удалось запустить {bundled}.");
-            }
             catch (Exception ex)
             {
+                _launcher = null;
                 onOutputLine($"[ERROR] Ошибка выполнения: {ex.Message}");
             }
         }
 
-        private static string? FindBundledEsptool()
+        private async Task<(string FileName, string Prefix)?> ResolveLauncherAsync()
+        {
+            if (_launcher is not null)
+            {
+                return _launcher;
+            }
+
+            if (await CanRunAsync(_pythonPath, "-c \"import esptool\""))
+            {
+                _launcher = (_pythonPath, "-u -m esptool ");
+                return _launcher;
+            }
+
+            var bundled = FindBundledEsptool();
+            if (bundled is not null)
+            {
+                _launcher = (bundled, string.Empty);
+                return _launcher;
+            }
+
+            return null;
+        }
+
+        private static async Task<bool> CanRunAsync(string fileName, string arguments)
+        {
+            try
+            {
+                using var process = Process.Start(new ProcessStartInfo
+                {
+                    FileName = fileName,
+                    Arguments = arguments,
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true
+                });
+
+                if (process is null)
+                {
+                    return false;
+                }
+
+                await process.WaitForExitAsync();
+                return process.ExitCode == 0;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private string? FindBundledEsptool()
         {
             var name = OperatingSystem.IsWindows() ? "esptool.exe" : "esptool";
-            var path = Path.Combine(AppContext.BaseDirectory, "esptool", name);
+            var path = Path.Combine(_bundledDirectory, name);
             return File.Exists(path) ? path : null;
         }
 

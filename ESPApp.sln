@@ -4,6 +4,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ESPApp.UI", "ESPApp.UI\ESPA
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ESPApp.Infrastructure", "ESPApp.Infrastructure\ESPApp.Infrastructure.csproj", "{EFC4A38D-0676-4BCC-BED1-39B4547F91DD}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ESPApp.Tests", "ESPApp.Tests\ESPApp.Tests.csproj", "{DFEA1186-8EEC-4301-AC27-8704B34F9B02}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -18,5 +20,9 @@ Global
 		{EFC4A38D-0676-4BCC-BED1-39B4547F91DD}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{EFC4A38D-0676-4BCC-BED1-39B4547F91DD}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{EFC4A38D-0676-4BCC-BED1-39B4547F91DD}.Release|Any CPU.Build.0 = Release|Any CPU
+		{DFEA1186-8EEC-4301-AC27-8704B34F9B02}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{DFEA1186-8EEC-4301-AC27-8704B34F9B02}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{DFEA1186-8EEC-4301-AC27-8704B34F9B02}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{DFEA1186-8EEC-4301-AC27-8704B34F9B02}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

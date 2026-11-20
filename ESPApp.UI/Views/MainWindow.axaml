@@ -139,7 +139,6 @@
                                 </Grid>
                                 <WrapPanel>
                                     <CheckBox Content="Стереть всё перед записью" IsChecked="{Binding EraseAll}"/>
-                                    <CheckBox Content="Не проверять после записи" IsChecked="{Binding NoVerify}"/>
                                     <CheckBox Content="Без сжатия" IsChecked="{Binding NoCompress}"/>
                                     <CheckBox Content="Принудительно" IsChecked="{Binding Force}"/>
                                 </WrapPanel>
