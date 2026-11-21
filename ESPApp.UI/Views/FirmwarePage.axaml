@@ -1,0 +1,79 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:ESPApp.UI.ViewModels"
+             x:Class="ESPApp.UI.Views.FirmwarePage"
+             x:DataType="vm:FirmwarePageViewModel"
+             IsEnabled="{Binding !Execution.IsBusy}">
+
+    <Grid RowDefinitions="*,Auto,Auto" RowSpacing="10" Margin="0,0,0,0">
+        <Border Grid.Row="0" Classes="card">
+            <DockPanel>
+                <TextBlock DockPanel.Dock="Top" Classes="title" Text="Файлы к записи" Margin="0,0,0,8"/>
+                <Button DockPanel.Dock="Bottom" Content="+ Ещё файл" HorizontalAlignment="Left"
+                        Command="{Binding AddFlashItemCommand}" Margin="0,4,0,0"/>
+                <ScrollViewer>
+                    <ItemsControl ItemsSource="{Binding FlashItems}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:FlashItem">
+                                <Grid ColumnDefinitions="100,*,Auto,Auto" ColumnSpacing="8" Margin="0,0,0,8">
+                                    <TextBox Grid.Column="0" Text="{Binding Address}" Watermark="0x1000"
+                                             HorizontalContentAlignment="Center"/>
+                                    <TextBox Grid.Column="1" Text="{Binding FilePath}" Watermark="Файл прошивки .bin"/>
+                                    <Button Grid.Column="2" Content="Выбрать" Command="{Binding BrowseCommand}"/>
+                                    <Button Grid.Column="3" Content="✕" Command="{Binding RemoveCommand}"/>
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </DockPanel>
+        </Border>
+
+        <Border Grid.Row="1" Classes="card">
+            <Expander Header="Параметры записи">
+                <StackPanel Spacing="8" Margin="0,8,0,0">
+                    <Grid ColumnDefinitions="Auto,*,Auto,*,Auto,*" ColumnSpacing="10">
+                        <TextBlock Grid.Column="0" Classes="muted" Text="Режим"/>
+                        <ComboBox Grid.Column="1" ItemsSource="{Binding FlashModes}" SelectedItem="{Binding FlashMode}"/>
+                        <TextBlock Grid.Column="2" Classes="muted" Text="Частота"/>
+                        <ComboBox Grid.Column="3" ItemsSource="{Binding FlashFreqs}" SelectedItem="{Binding FlashFreq}"/>
+                        <TextBlock Grid.Column="4" Classes="muted" Text="Размер"/>
+                        <ComboBox Grid.Column="5" ItemsSource="{Binding FlashSizes}" SelectedItem="{Binding FlashSize}"/>
+                    </Grid>
+                    <WrapPanel>
+                        <CheckBox Content="Стереть всё перед записью" IsChecked="{Binding EraseAll}"/>
+                        <CheckBox Content="Без сжатия" IsChecked="{Binding NoCompress}"/>
+                        <CheckBox Content="Принудительно" IsChecked="{Binding Force}"/>
+                    </WrapPanel>
+                </StackPanel>
+            </Expander>
+        </Border>
+
+        <Grid Grid.Row="2" ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="12">
+            <Button Grid.Column="0" Content="Проверить" Command="{Binding VerifyFlashCommand}" Height="38"
+                    VerticalContentAlignment="Center"/>
+            <CheckBox Grid.Column="1" Content="показать отличия" IsChecked="{Binding VerifyDiff}"
+                      VerticalAlignment="Center"/>
+
+            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6"
+                        VerticalAlignment="Center" Margin="8,0">
+                <TextBlock Text="Проверка..." Foreground="{StaticResource BrushTextMuted}"
+                           IsVisible="{Binding IsVerificationRunning}"/>
+                <TextBlock Text="✓" Foreground="#68c586" FontWeight="Bold"
+                           IsVisible="{Binding IsVerificationSuccessful}"/>
+                <TextBlock Text="{Binding VerificationStatusText}" Foreground="#68c586"
+                           IsVisible="{Binding IsVerificationSuccessful}"/>
+                <TextBlock Text="✕" Foreground="#e47777" FontWeight="Bold"
+                           IsVisible="{Binding IsVerificationFailed}"/>
+                <TextBlock Text="{Binding VerificationStatusText}" Foreground="#e47777"
+                           MaxWidth="220" TextWrapping="Wrap"
+                           IsVisible="{Binding IsVerificationFailed}"/>
+                <TextBlock Text="{Binding VerificationStatusText}" Foreground="{StaticResource BrushTextMuted}"
+                           IsVisible="{Binding IsVerificationCancelled}"/>
+            </StackPanel>
+
+            <Button Grid.Column="3" Classes="accent" Content="Прошить" Command="{Binding FlashCommand}"
+                    HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Height="38"/>
+        </Grid>
+    </Grid>
+</UserControl>

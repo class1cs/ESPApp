@@ -1,0 +1,138 @@
+using System.Threading.Tasks;
+using System.Collections.Generic;
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+
+namespace ESPApp.UI.ViewModels;
+
+public partial class ToolsPageViewModel : PageViewModelBase
+{
+    private readonly ConnectionViewModel _connection;
+    private readonly FirmwarePageViewModel _firmware;
+
+    public ToolsPageViewModel(
+        ConnectionViewModel connection,
+        EspToolExecutionViewModel execution,
+        FirmwarePageViewModel firmware)
+        : base("Ещё", "", "")
+    {
+        _connection = connection;
+        Execution = execution;
+        _firmware = firmware;
+    }
+
+    public EspToolExecutionViewModel Execution { get; }
+    public IReadOnlyList<string> MergeFormats { get; } = new[] { "raw", "uf2", "hex" };
+
+    [ObservableProperty] private string _memAddress = string.Empty;
+    [ObservableProperty] private string _memValue = string.Empty;
+    [ObservableProperty] private string _memMask = string.Empty;
+    [ObservableProperty] private string _dumpAddress = string.Empty;
+    [ObservableProperty] private string _dumpSize = string.Empty;
+    [ObservableProperty] private string _dumpPath = string.Empty;
+    [ObservableProperty] private string _loadRamPath = string.Empty;
+    [ObservableProperty] private string _imageInfoPath = string.Empty;
+    [ObservableProperty] private string _elfPath = string.Empty;
+    [ObservableProperty] private string _elfOutputPath = string.Empty;
+    [ObservableProperty] private string _mergeOutputPath = string.Empty;
+    [ObservableProperty] private string _selectedMergeFormat = "raw";
+
+    [RelayCommand]
+    private async Task BrowseOpenAsync(string? target)
+    {
+        var path = await FilePickerHelper.PickOpenAsync("Выберите файл");
+        if (path is null) return;
+
+        switch (target)
+        {
+            case nameof(LoadRamPath): LoadRamPath = path; break;
+            case nameof(ImageInfoPath): ImageInfoPath = path; break;
+            case nameof(ElfPath): ElfPath = path; break;
+        }
+
+        Execution.AppendLog($"Выбран файл: {path}");
+    }
+
+    [RelayCommand]
+    private async Task BrowseSaveAsync(string? target)
+    {
+        var suggested = target switch
+        {
+            nameof(ElfOutputPath) => "firmware.bin",
+            nameof(MergeOutputPath) => "merged.bin",
+            nameof(DumpPath) => "dump.bin",
+            _ => "flash.bin"
+        };
+
+        var path = await FilePickerHelper.PickSaveAsync("Сохранить как", suggested);
+        if (path is null) return;
+
+        switch (target)
+        {
+            case nameof(DumpPath): DumpPath = path; break;
+            case nameof(ElfOutputPath): ElfOutputPath = path; break;
+            case nameof(MergeOutputPath): MergeOutputPath = path; break;
+        }
+
+        Execution.AppendLog($"Файл для сохранения: {path}");
+    }
+
+    [RelayCommand]
+    private async Task ReadMemAsync()
+    {
+        if (!Execution.Require((MemAddress, "адрес"))) return;
+        await Execution.ExecuteAsync($"[{_connection.SelectedPort}] Чтение памяти {MemAddress}...", $"read-mem {MemAddress.Trim()}");
+    }
+
+    [RelayCommand]
+    private async Task WriteMemAsync()
+    {
+        if (!Execution.Require((MemAddress, "адрес"), (MemValue, "значение"))) return;
+        var command = $"write-mem {MemAddress.Trim()} {MemValue.Trim()}";
+        if (!string.IsNullOrWhiteSpace(MemMask)) command += $" {MemMask.Trim()}";
+        await Execution.ExecuteAsync($"[{_connection.SelectedPort}] Запись в память {MemAddress}...", command);
+    }
+
+    [RelayCommand]
+    private async Task DumpMemAsync()
+    {
+        if (!Execution.Require((DumpAddress, "адрес"), (DumpSize, "размер"), (DumpPath, "файл"))) return;
+        await Execution.ExecuteAsync(
+            $"[{_connection.SelectedPort}] Дамп памяти...",
+            $"dump-mem {DumpAddress.Trim()} {DumpSize.Trim()} {CommandText.Quote(DumpPath)}");
+    }
+
+    [RelayCommand]
+    private async Task LoadRamAsync()
+    {
+        if (!Execution.Require((LoadRamPath, "файл"))) return;
+        await Execution.ExecuteAsync($"[{_connection.SelectedPort}] Загрузка в RAM...", $"load-ram {CommandText.Quote(LoadRamPath)}");
+    }
+
+    [RelayCommand]
+    private async Task RunCodeAsync() =>
+        await Execution.ExecuteAsync($"[{_connection.SelectedPort}] Запуск загруженного кода...", "run");
+
+    [RelayCommand]
+    private async Task ImageInfoAsync()
+    {
+        if (!Execution.Require((ImageInfoPath, "файл"))) return;
+        await Execution.ExecuteAsync("Чтение информации об образе...", $"image-info {CommandText.Quote(ImageInfoPath)}", needsPort: false);
+    }
+
+    [RelayCommand]
+    private async Task Elf2ImageAsync()
+    {
+        if (!Execution.Require((ElfPath, "ELF-файл"), (ElfOutputPath, "выходной файл"))) return;
+        var command = $"elf2image {_firmware.FlashOptions()} -o {CommandText.Quote(ElfOutputPath)} {CommandText.Quote(ElfPath)}";
+        await Execution.ExecuteAsync("Конвертация ELF в образ...", command, needsPort: false, needsChip: true);
+    }
+
+    [RelayCommand]
+    private async Task MergeBinAsync()
+    {
+        if (!Execution.Require((MergeOutputPath, "выходной файл")) || !_firmware.TryGetFlashPairs(out var pairs)) return;
+        var command = $"merge-bin -o {CommandText.Quote(MergeOutputPath)} --format {SelectedMergeFormat} {_firmware.FlashOptions()} {pairs}";
+        await Execution.ExecuteAsync("Слияние образов...", command, needsPort: false, needsChip: true);
+    }
+}

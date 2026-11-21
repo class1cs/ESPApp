@@ -1,0 +1,60 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:ESPApp.UI.ViewModels"
+             x:Class="ESPApp.UI.Views.MemoryPage"
+             x:DataType="vm:MemoryPageViewModel"
+             IsEnabled="{Binding !Execution.IsBusy}">
+
+    <ScrollViewer>
+        <StackPanel Margin="0,10,0,0" Spacing="10">
+            <Border Classes="card">
+                <StackPanel Spacing="8">
+                    <TextBlock Classes="title" Text="Резервное копирование прошивки"/>
+                    <Grid ColumnDefinitions="Auto,100,Auto,100,*,Auto" ColumnSpacing="10">
+                        <TextBlock Grid.Column="0" Classes="muted" Text="С адреса"/>
+                        <TextBox Grid.Column="1" Text="{Binding ReadAddress}" Watermark="0x0"/>
+                        <TextBlock Grid.Column="2" Classes="muted" Text="Размер"/>
+                        <TextBox Grid.Column="3" Text="{Binding ReadSize}" Watermark="ALL (Вся память)"/>
+                        <TextBox Grid.Column="4" Text="{Binding ReadPath}" Watermark="Куда сохранить"/>
+                        <Button Grid.Column="5" Content="Выбрать" Command="{Binding BrowseSaveCommand}"
+                                CommandParameter="ReadPath"/>
+                    </Grid>
+                    <Button Content="Сохранить" Command="{Binding ReadFlashCommand}"
+                            HorizontalAlignment="Left"/>
+                </StackPanel>
+            </Border>
+
+            <Border Classes="card">
+                <StackPanel Spacing="8">
+                    <TextBlock Classes="title" Text="Стереть память"/>
+                    <Button Content="Стереть всю память" Command="{Binding EraseFlashCommand}"
+                            HorizontalAlignment="Left"/>
+                    <Separator Margin="0,6" Background="{StaticResource BrushBorder}"/>
+                    <TextBlock Classes="hint" Text="Стереть часть память"/>
+                    <Grid ColumnDefinitions="Auto,120,Auto,120,Auto" ColumnSpacing="10">
+                        <TextBlock Grid.Column="0" Classes="muted" Text="С адреса"/>
+                        <TextBox Grid.Column="1" Text="{Binding EraseRegionAddress}" Watermark="0x10000"/>
+                        <TextBlock Grid.Column="2" Classes="muted" Text="Размер"/>
+                        <TextBox Grid.Column="3" Text="{Binding EraseRegionSize}" Watermark="0x1000"/>
+                        <Button Grid.Column="4" Content="Стереть" Command="{Binding EraseRegionCommand}"/>
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <Border Classes="card">
+                <StackPanel Spacing="8">
+                    <TextBlock Classes="title" Text="Защита флеш-памяти"/>
+                    <StackPanel Orientation="Horizontal" Spacing="10">
+                        <TextBlock Classes="muted" Text="Байт"/>
+                        <ComboBox Width="70" ItemsSource="{Binding StatusBytesOptions}"
+                                  SelectedItem="{Binding SelectedStatusBytes}"/>
+                        <Button Content="Посмотреть" Command="{Binding ReadFlashStatusCommand}"/>
+                        <TextBox Width="110" Text="{Binding StatusValue}" Watermark="Значение"/>
+                        <CheckBox Content="навсегда" IsChecked="{Binding StatusNonVolatile}" Margin="0"/>
+                        <Button Content="Записать" Command="{Binding WriteFlashStatusCommand}"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>
