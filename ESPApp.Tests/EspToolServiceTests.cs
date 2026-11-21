@@ -1,6 +1,7 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using CommunityToolkit.Mvvm.Input;
 using ESPApp.Infrastructure.Interfaces;
+using ESPApp.Infrastructure.Models;
 using ESPApp.Infrastructure.Services;
 using ESPApp.UI.ViewModels;
 using FluentAssertions;
@@ -87,7 +88,7 @@ namespace ESPApp.Tests
                     ")\r\n" +
                     "echo ARGS: %*\r\n" +
                     "echo ENV: %PYTHONUNBUFFERED% %PYTHONIOENCODING%\r\n" +
-                    "echo some warning 1>&2\r\n" +
+                    "echo some warning>&2\r\n" +
                     $"{linesCommand}\r\n" +
                     $"{sleepCommand}\r\n" +
                     $"exit /b {exitCode}\r\n");
@@ -170,13 +171,13 @@ namespace ESPApp.Tests
     {
         public string? LastArguments { get; private set; }
 
-        public Task ExecuteCommandAsync(
+        public Task<EsptoolCommandResult> ExecuteCommandAsync(
             string arguments,
             Action<string> onOutputLine,
             CancellationToken cancellationToken = default)
         {
             LastArguments = arguments;
-            return Task.CompletedTask;
+            return Task.FromResult(EsptoolCommandResult.Success());
         }
     }
 
@@ -194,11 +195,14 @@ namespace ESPApp.Tests
             var service = new EspToolService(fake.FilePath, NoBundled);
 
             // Act
-            var lines = await Runner.RunAsync(service, "--port COM3 chip-id");
+            var lines = new List<string>();
+            var result = await service.ExecuteCommandAsync(
+                "--port COM3 chip-id", lines.Add);
 
             // Assert
             lines.Should().Contain("ARGS: -u -m esptool --port COM3 chip-id");
             lines.Should().Contain("Готово.");
+            result.Status.Should().Be(EsptoolCommandStatus.Succeeded);
         }
 
         [Fact(DisplayName = "Запуск: вывод ошибок esptool получает префикс [ERR]")]
@@ -237,11 +241,14 @@ namespace ESPApp.Tests
             var service = new EspToolService(fake.FilePath, NoBundled);
 
             // Act
-            var lines = await Runner.RunAsync(service, "chip-id");
+            var lines = new List<string>();
+            var result = await service.ExecuteCommandAsync("chip-id", lines.Add);
 
             // Assert
             lines.Should().Contain(l => l.Contains("код: 3"));
             lines.Should().NotContain("Готово.");
+            result.Status.Should().Be(EsptoolCommandStatus.Failed);
+            result.ExitCode.Should().Be(3);
         }
 
         [Fact(DisplayName = "Запуск: большой вывод приходит целиком и по порядку")]
@@ -414,35 +421,73 @@ namespace ESPApp.Tests
         {
             // Arrange
             var recorder = new RecordingService();
-            var vm = new MainViewModel(recorder)
+            var vm = new MainViewModel(recorder);
+
+            // Shared connection options now belong to ConnectionViewModel.
+            vm.Connection.SelectedPort = "COM3";
+            vm.Connection.SelectedChip = "esp32";
+            vm.Connection.NoStub = true;
+            vm.Connection.Trace = true;
+
+            // Firmware page state.
+            vm.Firmware.EraseAll = true;
+            vm.Firmware.NoCompress = true;
+            vm.Firmware.Force = true;
+            vm.Firmware.VerifyDiff = true;
+            vm.Firmware.FlashItems[0].FilePath = "boot.bin";
+
+            // Memory page state.
+            vm.Memory.EraseRegionAddress = "0x10000";
+            vm.Memory.EraseRegionSize = "0x1000";
+            vm.Memory.ReadPath = "backup.bin";
+            vm.Memory.StatusValue = "0x40";
+            vm.Memory.StatusNonVolatile = true;
+
+            // Tools page state.
+            vm.Tools.MemAddress = "0x3ff00000";
+            vm.Tools.MemValue = "0x1";
+            vm.Tools.MemMask = "0xff";
+            vm.Tools.DumpAddress = "0x40000000";
+            vm.Tools.DumpSize = "0x1000";
+            vm.Tools.DumpPath = "dump.bin";
+            vm.Tools.LoadRamPath = "app.bin";
+            vm.Tools.ImageInfoPath = "fw.bin";
+            vm.Tools.ElfPath = "app.elf";
+            vm.Tools.ElfOutputPath = "app.bin";
+            vm.Tools.MergeOutputPath = "merged.bin";
+
+            // Resolve each generated command from the ViewModel that owns the page.
+            IAsyncRelayCommand command = commandName switch
             {
-                SelectedPort = "COM3",
-                SelectedChip = "esp32",
-                NoStub = true,
-                Trace = true,
-                EraseAll = true,
-                NoCompress = true,
-                Force = true,
-                VerifyDiff = true,
-                StatusNonVolatile = true,
-                EraseRegionAddress = "0x10000",
-                EraseRegionSize = "0x1000",
-                ReadPath = "backup.bin",
-                StatusValue = "0x40",
-                MemAddress = "0x3ff00000",
-                MemValue = "0x1",
-                MemMask = "0xff",
-                DumpAddress = "0x40000000",
-                DumpSize = "0x1000",
-                DumpPath = "dump.bin",
-                LoadRamPath = "app.bin",
-                ImageInfoPath = "fw.bin",
-                ElfPath = "app.elf",
-                ElfOutputPath = "app.bin",
-                MergeOutputPath = "merged.bin"
+                "FlashCommand" => vm.Firmware.FlashCommand,
+                "VerifyFlashCommand" => vm.Firmware.VerifyFlashCommand,
+
+                "EraseFlashCommand" => vm.Memory.EraseFlashCommand,
+                "EraseRegionCommand" => vm.Memory.EraseRegionCommand,
+                "ReadFlashCommand" => vm.Memory.ReadFlashCommand,
+                "ReadFlashStatusCommand" => vm.Memory.ReadFlashStatusCommand,
+                "WriteFlashStatusCommand" => vm.Memory.WriteFlashStatusCommand,
+
+                "ChipIdCommand" => vm.ChipInfo.ChipIdCommand,
+                "FlashIdCommand" => vm.ChipInfo.FlashIdCommand,
+                "ReadMacCommand" => vm.ChipInfo.ReadMacCommand,
+                "SecurityInfoCommand" => vm.ChipInfo.SecurityInfoCommand,
+                "VersionCommand" => vm.ChipInfo.VersionCommand,
+                "ReadSfdpCommand" => vm.ChipInfo.ReadSfdpCommand,
+
+                "ReadMemCommand" => vm.Tools.ReadMemCommand,
+                "WriteMemCommand" => vm.Tools.WriteMemCommand,
+                "DumpMemCommand" => vm.Tools.DumpMemCommand,
+                "LoadRamCommand" => vm.Tools.LoadRamCommand,
+                "RunCodeCommand" => vm.Tools.RunCodeCommand,
+                "ImageInfoCommand" => vm.Tools.ImageInfoCommand,
+                "Elf2ImageCommand" => vm.Tools.Elf2ImageCommand,
+                "MergeBinCommand" => vm.Tools.MergeBinCommand,
+
+                _ => throw new ArgumentOutOfRangeException(
+                    nameof(commandName), commandName, "Неизвестная команда ViewModel.")
             };
-            vm.FlashItems[0].FilePath = "boot.bin";
-            var command = (IAsyncRelayCommand)typeof(MainViewModel).GetProperty(commandName)!.GetValue(vm)!;
+
             await command.ExecuteAsync(null);
 
             // Act

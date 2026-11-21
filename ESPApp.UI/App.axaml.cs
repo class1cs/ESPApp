@@ -23,8 +23,10 @@ public partial class App : Application
     {
         var services = new ServiceCollection();
 
-        services.AddSingleton<IEspToolService>(provider => new EspToolService("python"));
-
+        services.AddSingleton<EspToolService>();
+        services.AddSingleton<IEspToolService>(sp => sp.GetRequiredService<EspToolService>());
+        services.AddSingleton<IEspToolConfigurator>(sp => sp.GetRequiredService<EspToolService>());
+        services.AddSingleton<ISettingsService, SettingsService>();
         services.AddTransient<MainViewModel>();
 
         Services = services.BuildServiceProvider();

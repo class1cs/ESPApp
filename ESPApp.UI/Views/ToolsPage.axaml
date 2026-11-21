@@ -1,0 +1,96 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:ESPApp.UI.ViewModels"
+             x:Class="ESPApp.UI.Views.ToolsPage"
+             x:DataType="vm:ToolsPageViewModel"
+             IsEnabled="{Binding !Execution.IsBusy}">
+
+    <ScrollViewer>
+        <StackPanel Margin="0,10,0,0" Spacing="10">
+            <Border Classes="card">
+                <StackPanel Spacing="8">
+                    <TextBlock Classes="title" Text="Что внутри .bin"/>
+                    <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="10">
+                        <TextBox Grid.Column="0" Text="{Binding ImageInfoPath}" Watermark="Файл .bin"/>
+                        <Button Grid.Column="1" Content="Выбрать" Command="{Binding BrowseOpenCommand}"
+                                CommandParameter="ImageInfoPath"/>
+                        <Button Grid.Column="2" Content="Показать" Command="{Binding ImageInfoCommand}"/>
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <Border Classes="card">
+                <StackPanel Spacing="8">
+                    <TextBlock Classes="title" Text="Склеить несколько .bin в один"/>
+                    <TextBlock Classes="hint" Text="Файлы и адреса берутся из параметров записи. Выбранный чип обязателен!"/>
+                    <Grid ColumnDefinitions="*,Auto,100,Auto" ColumnSpacing="10">
+                        <TextBox Grid.Column="0" Text="{Binding MergeOutputPath}" Watermark="Куда сохранить"/>
+                        <Button Grid.Column="1" Content="Выбрать" Command="{Binding BrowseSaveCommand}"
+                                CommandParameter="MergeOutputPath"/>
+                        <ComboBox Grid.Column="2" ItemsSource="{Binding MergeFormats}"
+                                  SelectedItem="{Binding SelectedMergeFormat}"/>
+                        <Button Grid.Column="3" Content="Склеить" Command="{Binding MergeBinCommand}"/>
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <Border Classes="card">
+                <StackPanel Spacing="8">
+                    <TextBlock Classes="title" Text="Собрать .bin из .elf"/>
+                    <TextBlock Classes="hint" Text="Режим, частота и размер берутся из параметров записи. Выбранный чип обязателен!"/>
+                    <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="10" RowSpacing="8">
+                        <TextBox Grid.Row="0" Grid.Column="0" Text="{Binding ElfPath}" Watermark="Откуда: файл .elf"/>
+                        <Button Grid.Row="0" Grid.Column="1" Content="Выбрать" Command="{Binding BrowseOpenCommand}"
+                                CommandParameter="ElfPath"/>
+                        <TextBox Grid.Row="1" Grid.Column="0" Text="{Binding ElfOutputPath}" Watermark="Куда сохранить .bin"/>
+                        <Button Grid.Row="1" Grid.Column="1" Content="Выбрать" Command="{Binding BrowseSaveCommand}"
+                                CommandParameter="ElfOutputPath"/>
+                    </Grid>
+                    <Button Content="Собрать" Command="{Binding Elf2ImageCommand}" HorizontalAlignment="Left"/>
+                </StackPanel>
+            </Border>
+
+            <Border Classes="card">
+                <StackPanel Spacing="8">
+                    <TextBlock Classes="title" Text="Значения в памяти чипа"/>
+                    <Grid ColumnDefinitions="*,*,*" ColumnSpacing="10">
+                        <TextBox Grid.Column="0" Text="{Binding MemAddress}" Watermark="Адрес"/>
+                        <TextBox Grid.Column="1" Text="{Binding MemValue}" Watermark="Значение"/>
+                        <TextBox Grid.Column="2" Text="{Binding MemMask}" Watermark="Маска (необязательна)"/>
+                    </Grid>
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Button Content="Прочитать" Command="{Binding ReadMemCommand}"/>
+                        <Button Content="Записать" Command="{Binding WriteMemCommand}"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <Border Classes="card">
+                <StackPanel Spacing="8">
+                    <TextBlock Classes="title" Text="Выгрузить часть памяти по адресу в файл"/>
+                    <Grid ColumnDefinitions="110,110,*,Auto" ColumnSpacing="10">
+                        <TextBox Grid.Column="0" Text="{Binding DumpAddress}" Watermark="Адрес"/>
+                        <TextBox Grid.Column="1" Text="{Binding DumpSize}" Watermark="Размер"/>
+                        <TextBox Grid.Column="2" Text="{Binding DumpPath}" Watermark="Файл сохранения"/>
+                        <Button Grid.Column="3" Content="Выбрать" Command="{Binding BrowseSaveCommand}"
+                                CommandParameter="DumpPath"/>
+                    </Grid>
+                    <Button Content="Выгрузить" Command="{Binding DumpMemCommand}" HorizontalAlignment="Left"/>
+                </StackPanel>
+            </Border>
+
+            <Border Classes="card">
+                <StackPanel Spacing="8">
+                    <TextBlock Classes="title" Text="Запустить программу в RAM без записи в флеш-память"/>
+                    <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="10">
+                        <TextBox Grid.Column="0" Text="{Binding LoadRamPath}" Watermark="Файл .bin"/>
+                        <Button Grid.Column="1" Content="Выбрать" Command="{Binding BrowseOpenCommand}"
+                                CommandParameter="LoadRamPath"/>
+                        <Button Grid.Column="2" Content="Запустить" Command="{Binding LoadRamCommand}"/>
+                        <Button Grid.Column="3" Content="Перезапустить плату" Command="{Binding RunCodeCommand}"/>
+                    </Grid>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

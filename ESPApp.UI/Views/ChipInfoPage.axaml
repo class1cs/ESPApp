@@ -1,0 +1,37 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:ESPApp.UI.ViewModels"
+             x:Class="ESPApp.UI.Views.ChipInfoPage"
+             x:DataType="vm:ChipInfoPageViewModel"
+             IsEnabled="{Binding !Execution.IsBusy}">
+
+    <ScrollViewer>
+        <StackPanel Margin="0,10,0,0" Spacing="10">
+            <Border Classes="card">
+                <StackPanel Spacing="8">
+                    <TextBlock Classes="title" Text="Информация о плате"/>
+                    <WrapPanel>
+                        <Button Content="Модель чипа" Command="{Binding ChipIdCommand}" Margin="0,0,8,8"/>
+                        <Button Content="Флеш-память" Command="{Binding FlashIdCommand}" Margin="0,0,8,8"/>
+                        <Button Content="MAC-адрес" Command="{Binding ReadMacCommand}" Margin="0,0,8,8"/>
+                        <Button Content="Защита чипа" Command="{Binding SecurityInfoCommand}" Margin="0,0,8,8"/>
+                        <Button Content="Версия esptool" Command="{Binding VersionCommand}" Margin="0,0,8,8"/>
+                    </WrapPanel>
+                </StackPanel>
+            </Border>
+
+            <Border Classes="card">
+                <StackPanel Spacing="8">
+                    <TextBlock Classes="title" Text="Паспорт флеш-памяти"/>
+                    <Grid ColumnDefinitions="Auto,100,Auto,100,Auto" ColumnSpacing="10">
+                        <TextBlock Grid.Column="0" Classes="muted" Text="Адрес"/>
+                        <TextBox Grid.Column="1" Text="{Binding SfdpAddress}" Watermark="0x0"/>
+                        <TextBlock Grid.Column="2" Classes="muted" Text="Длина"/>
+                        <TextBox Grid.Column="3" Text="{Binding SfdpLength}" Watermark="4"/>
+                        <Button Grid.Column="4" Content="Прочитать" Command="{Binding ReadSfdpCommand}"/>
+                    </Grid>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

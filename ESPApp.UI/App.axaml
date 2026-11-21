@@ -27,7 +27,7 @@
         <Style Selector="Button">
             <Setter Property="Background" Value="{StaticResource BrushBgCard}"/>
             <Setter Property="Foreground" Value="{StaticResource BrushTextMain}"/>
-            <Setter Property="CornerRadius" Value="4"/>
+            <Setter Property="CornerRadius" Value="2"/>
             <Setter Property="BorderBrush" Value="{StaticResource BrushBorder}"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="Padding" Value="10,6"/>
@@ -40,7 +40,7 @@
         <Style Selector="TextBox, ComboBox">
             <Setter Property="Background" Value="{StaticResource BrushBgTerminal}"/>
             <Setter Property="Foreground" Value="{StaticResource BrushTextMain}"/>
-            <Setter Property="CornerRadius" Value="4"/>
+            <Setter Property="CornerRadius" Value="2"/>
             <Setter Property="BorderBrush" Value="{StaticResource BrushBorder}"/>
             <Setter Property="BorderThickness" Value="1"/>
         </Style>

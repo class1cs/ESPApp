@@ -1,6 +1,11 @@
-﻿namespace ESPApp.Infrastructure.Interfaces;
+using ESPApp.Infrastructure.Models;
+
+namespace ESPApp.Infrastructure.Interfaces;
 
 public interface IEspToolService
 {
-    Task ExecuteCommandAsync(string arguments, Action<string> onOutputLine, CancellationToken cancellationToken = default);
+    Task<EsptoolCommandResult> ExecuteCommandAsync(
+        string arguments,
+        Action<string> onOutputLine,
+        CancellationToken cancellationToken = default);
 }

@@ -1,0 +1,70 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:ESPApp.UI.ViewModels"
+             x:Class="ESPApp.UI.Views.WelcomeView"
+             x:DataType="vm:WelcomeViewModel">
+
+    <Border Classes="card" MaxWidth="680" Margin="24" Padding="24"
+            HorizontalAlignment="Center" VerticalAlignment="Center">
+        <ScrollViewer>
+            <StackPanel Spacing="14">
+
+                <StackPanel Spacing="4">
+                    <TextBlock Classes="title" FontSize="20" Text="Добро пожаловать"/>
+                    <TextBlock Classes="hint"
+                               Text="Прошивкой плат ESP занимается утилита esptool. Выберите, откуда программа будет её брать. Выбор можно поменять позже по кнопке ⚙."/>
+                </StackPanel>
+
+                <Separator Background="{StaticResource BrushBorder}"/>
+
+                <StackPanel Spacing="6">
+                    <RadioButton GroupName="EsptoolSource" IsChecked="{Binding IsPython}" Content="Python"/>
+                    <TextBlock Classes="hint" Margin="28,0,0,0"
+                               Text="Запускает «python -m esptool». Нужен Python и команда pip install esptool."/>
+                    <TextBox Margin="28,0,0,0" Text="{Binding PythonPath}"
+                             Watermark="Команда или путь к Python, по умолчанию python"/>
+                    <TextBlock Classes="muted" Margin="28,0,0,0" Text="{Binding PythonStatus}"/>
+                </StackPanel>
+
+                <StackPanel Spacing="6">
+                    <RadioButton GroupName="EsptoolSource" IsChecked="{Binding IsExe}" Content="Готовый esptool.exe"/>
+                    <TextBlock Classes="hint" Margin="28,0,0,0"
+                               Text="Не требует Python. Берётся файл из папки «esptool» рядом с программой или тот, который вы выберете."/>
+                    <Grid Margin="28,0,0,0" ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                        <TextBox Text="{Binding ExePath}"
+                                 Watermark="Пусто — esptool.exe из папки «esptool» рядом с программой"/>
+                        <Button Grid.Column="1" Content="Выбрать" Command="{Binding BrowseExeCommand}"/>
+                    </Grid>
+                    <TextBlock Classes="muted" Margin="28,0,0,0" Text="{Binding ExeStatus}"/>
+                </StackPanel>
+
+                <StackPanel Spacing="6">
+                    <RadioButton GroupName="EsptoolSource" IsChecked="{Binding IsSystemPath}" Content="Из PATH"/>
+                    <TextBlock Classes="hint" Margin="28,0,0,0"
+                               Text="Команда esptool, которую система находит сама: после pip install esptool или если esptool добавлен в PATH."/>
+                    <TextBlock Classes="muted" Margin="28,0,0,0" Text="{Binding SystemPathStatus}"/>
+                </StackPanel>
+
+                <Separator Background="{StaticResource BrushBorder}"/>
+
+                <Grid ColumnDefinitions="Auto,*,Auto,*" ColumnSpacing="10">
+                    <TextBlock Grid.Column="0" Classes="muted" Text="Чип по умолчанию"/>
+                    <ComboBox Grid.Column="1" ItemsSource="{Binding Chips}" SelectedItem="{Binding SelectedChip}"/>
+                    <TextBlock Grid.Column="2" Classes="muted" Text="Скорость"/>
+                    <ComboBox Grid.Column="3" ItemsSource="{Binding Bauds}" SelectedItem="{Binding SelectedBaud}"/>
+                </Grid>
+
+                <CheckBox Content="Показывать это окно при запуске" IsChecked="{Binding ShowOnStart}"/>
+
+                <ProgressBar IsIndeterminate="True" IsVisible="{Binding IsChecking}" Height="3"/>
+                <TextBlock Classes="hint" Text="{Binding Message}"/>
+
+                <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="10">
+                    <Button Grid.Column="0" Content="Проверить" Command="{Binding CheckCommand}"/>
+                    <Button Grid.Column="2" Content="Отмена" Command="{Binding CancelCommand}"/>
+                    <Button Grid.Column="3" Classes="accent" Content="Продолжить" Command="{Binding ContinueCommand}"/>
+                </Grid>
+            </StackPanel>
+        </ScrollViewer>
+    </Border>
+</UserControl>
