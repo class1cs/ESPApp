@@ -270,7 +270,13 @@ namespace ESPApp.UI.ViewModels
                 return;
             }
 
-            if (_results.TryGetValue(SelectedKind, out var probe) && !probe.Found)
+            if (!_results.TryGetValue(SelectedKind, out var probe))
+            {
+                Message = "Настройки выбранного источника изменены — нажмите «Проверить».";
+                return;
+            }
+
+            if (!probe.Found)
             {
                 var hint = SelectedKind switch
                 {

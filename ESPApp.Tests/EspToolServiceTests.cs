@@ -3,9 +3,7 @@ using CommunityToolkit.Mvvm.Input;
 using ESPApp.Infrastructure.Interfaces;
 using ESPApp.Infrastructure.Models;
 using ESPApp.Infrastructure.Services;
-using ESPApp.UI.ViewModels;
 using FluentAssertions;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace ESPApp.Tests
 {
@@ -165,20 +163,6 @@ namespace ESPApp.Tests
             catch
             {
             }
-        }
-    }
-
-    public sealed class RecordingService : IEspToolService
-    {
-        public string? LastArguments { get; private set; }
-
-        public Task<EsptoolCommandResult> ExecuteCommandAsync(
-            string arguments,
-            Action<string> onOutputLine,
-            CancellationToken cancellationToken = default)
-        {
-            LastArguments = arguments;
-            return Task.FromResult(EsptoolCommandResult.Success());
         }
     }
 
@@ -421,70 +405,65 @@ namespace ESPApp.Tests
         public async Task ViewModelCommand_IsAcceptedByRealEsptool(string commandName)
         {
             // Arrange
-            var recorder = new RecordingService();
-            using var provider = TestApplicationHost.Create(recorder);
-            var vm = provider.GetRequiredService<MainViewModel>();
+            using var host = TestApplicationHost.Create();
+            // Shared connection options belong to ConnectionViewModel.
+            host.Connection.SelectedPort = "COM3";
+            host.Connection.SelectedChip = "esp32";
+            host.Connection.NoStub = true;
+            host.Connection.Trace = true;
 
-            // Shared connection options now belong to ConnectionViewModel.
-            vm.Connection.SelectedPort = "COM3";
-            vm.Connection.SelectedChip = "esp32";
-            vm.Connection.NoStub = true;
-            vm.Connection.Trace = true;
+            // Prepare state on the page that owns it.
+            host.Firmware.EraseAll = true;
+            host.Firmware.NoCompress = true;
+            host.Firmware.Force = true;
+            host.Firmware.VerifyDiff = true;
+            host.Firmware.FlashItems[0].FilePath = "boot.bin";
 
-            // Firmware page state.
-            vm.Firmware.EraseAll = true;
-            vm.Firmware.NoCompress = true;
-            vm.Firmware.Force = true;
-            vm.Firmware.VerifyDiff = true;
-            vm.Firmware.FlashItems[0].FilePath = "boot.bin";
+            host.Memory.EraseRegionAddress = "0x10000";
+            host.Memory.EraseRegionSize = "0x1000";
+            host.Memory.ReadPath = "backup.bin";
+            host.Memory.StatusValue = "0x40";
+            host.Memory.StatusNonVolatile = true;
 
-            // Memory page state.
-            vm.Memory.EraseRegionAddress = "0x10000";
-            vm.Memory.EraseRegionSize = "0x1000";
-            vm.Memory.ReadPath = "backup.bin";
-            vm.Memory.StatusValue = "0x40";
-            vm.Memory.StatusNonVolatile = true;
-
-            // Tools page state.
-            vm.Tools.MemAddress = "0x3ff00000";
-            vm.Tools.MemValue = "0x1";
-            vm.Tools.MemMask = "0xff";
-            vm.Tools.DumpAddress = "0x40000000";
-            vm.Tools.DumpSize = "0x1000";
-            vm.Tools.DumpPath = "dump.bin";
-            vm.Tools.LoadRamPath = "app.bin";
-            vm.Tools.ImageInfoPath = "fw.bin";
-            vm.Tools.ElfPath = "app.elf";
-            vm.Tools.ElfOutputPath = "app.bin";
-            vm.Tools.MergeOutputPath = "merged.bin";
+            host.Tools.MemAddress = "0x3ff00000";
+            host.Tools.MemValue = "0x1";
+            host.Tools.MemMask = "0xff";
+            host.Tools.DumpAddress = "0x40000000";
+            host.Tools.DumpSize = "0x1000";
+            host.Tools.DumpPath = "dump.bin";
+            host.Tools.LoadRamPath = "app.bin";
+            host.Tools.ImageInfoPath = "fw.bin";
+            host.Tools.ElfPath = "app.elf";
+            host.Tools.ElfOutputPath = "app.bin";
+            host.Tools.MergeOutputPath = "merged.bin";
 
             // Resolve each generated command from the ViewModel that owns the page.
             IAsyncRelayCommand command = commandName switch
             {
-                "FlashCommand" => vm.Firmware.FlashCommand,
-                "VerifyFlashCommand" => vm.Firmware.VerifyFlashCommand,
+                "FlashCommand" => host.Firmware.FlashCommand,
+                "VerifyFlashCommand" => host.Firmware.VerifyFlashCommand,
 
-                "EraseFlashCommand" => vm.Memory.EraseFlashCommand,
-                "EraseRegionCommand" => vm.Memory.EraseRegionCommand,
-                "ReadFlashCommand" => vm.Memory.ReadFlashCommand,
-                "ReadFlashStatusCommand" => vm.Memory.ReadFlashStatusCommand,
-                "WriteFlashStatusCommand" => vm.Memory.WriteFlashStatusCommand,
+                "EraseFlashCommand" => host.Memory.EraseFlashCommand,
+                "EraseRegionCommand" => host.Memory.EraseRegionCommand,
+                "ReadFlashCommand" => host.Memory.ReadFlashCommand,
+                "ReadFlashStatusCommand" => host.Memory.ReadFlashStatusCommand,
+                "WriteFlashStatusCommand" => host.Memory.WriteFlashStatusCommand,
 
-                "ChipIdCommand" => vm.ChipInfo.ChipIdCommand,
-                "FlashIdCommand" => vm.ChipInfo.FlashIdCommand,
-                "ReadMacCommand" => vm.ChipInfo.ReadMacCommand,
-                "SecurityInfoCommand" => vm.ChipInfo.SecurityInfoCommand,
-                "VersionCommand" => vm.ChipInfo.VersionCommand,
-                "ReadSfdpCommand" => vm.ChipInfo.ReadSfdpCommand,
+                "ChipIdCommand" => host.ChipInfo.ChipIdCommand,
+                "FlashIdCommand" => host.ChipInfo.FlashIdCommand,
+                "ReadMacCommand" => host.ChipInfo.ReadMacCommand,
+                "SecurityInfoCommand" => host.ChipInfo.SecurityInfoCommand,
+                "VersionCommand" => host.ChipInfo.VersionCommand,
+                "ReadSfdpCommand" => host.ChipInfo.ReadSfdpCommand,
 
-                "ReadMemCommand" => vm.Tools.ReadMemCommand,
-                "WriteMemCommand" => vm.Tools.WriteMemCommand,
-                "DumpMemCommand" => vm.Tools.DumpMemCommand,
-                "LoadRamCommand" => vm.Tools.LoadRamCommand,
-                "RunCodeCommand" => vm.Tools.RunCodeCommand,
-                "ImageInfoCommand" => vm.Tools.ImageInfoCommand,
-                "Elf2ImageCommand" => vm.Tools.Elf2ImageCommand,
-                "MergeBinCommand" => vm.Tools.MergeBinCommand,
+                "ReadMemCommand" => host.Tools.ReadMemCommand,
+                "WriteMemCommand" => host.Tools.WriteMemCommand,
+                "DumpMemCommand" => host.Tools.DumpMemCommand,
+                "LoadRamCommand" => host.Tools.LoadRamCommand,
+                "RunCodeCommand" => host.Tools.RunCodeCommand,
+                "ImageInfoCommand" => host.Tools.ImageInfoCommand,
+                "Elf2ImageCommand" => host.Tools.Elf2ImageCommand,
+                "MergeBinCommand" => host.Tools.MergeBinCommand,
 
                 _ => throw new ArgumentOutOfRangeException(
                     nameof(commandName), commandName, "Неизвестная команда ViewModel.")
@@ -493,7 +472,7 @@ namespace ESPApp.Tests
             await command.ExecuteAsync(null);
 
             // Act
-            var help = await HelpAsync($"{recorder.LastArguments} --help");
+            var help = await HelpAsync($"{host.EspToolService.LastArguments} --help");
 
             // Assert
             help.Should().NotBeEmpty();
