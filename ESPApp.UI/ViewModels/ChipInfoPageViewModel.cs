@@ -2,14 +2,16 @@ using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 
+using ESPApp.UI.Services;
+
 namespace ESPApp.UI.ViewModels;
 
 public partial class ChipInfoPageViewModel : PageViewModelBase
 {
     private readonly ConnectionViewModel _connection;
 
-    public ChipInfoPageViewModel(ConnectionViewModel connection, EspToolExecutionViewModel execution)
-        : base("О чипе", "Идентификаторы и параметры платы", "◈")
+    public ChipInfoPageViewModel(ConnectionViewModel connection, EspToolExecutionViewModel execution, IPageNavigationService navigationService)
+        : base("О чипе", "Идентификаторы и параметры платы", "◈", navigationService)
     {
         _connection = connection;
         Execution = execution;

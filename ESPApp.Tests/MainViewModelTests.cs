@@ -5,14 +5,16 @@ using ESPApp.Infrastructure.Models;
 using ESPApp.UI.ViewModels;
 using FluentAssertions;
 using FluentAssertions.Execution;
+using Microsoft.Extensions.DependencyInjection;
 using NSubstitute;
 
 namespace ESPApp.Tests
 {
     [Trait("Category", "Unit")]
-    public class MainViewModelTests
+    public class MainViewModelTests : IDisposable
     {
         private readonly IEspToolService _service;
+        private ServiceProvider? _provider;
         private string? _args;
         private int _calls;
 
@@ -37,10 +39,13 @@ namespace ESPApp.Tests
 
         private TestHarness CreateViewModel()
         {
-            var main = new MainViewModel(_service);
+            _provider = TestApplicationHost.Create(_service);
+            var main = _provider.GetRequiredService<MainViewModel>();
             main.Connection.SelectedPort = "COM3";
             return new TestHarness(main);
         }
+
+        public void Dispose() => _provider?.Dispose();
 
         private static IAsyncRelayCommand GetCommand(TestHarness vm, string commandName)
         {
@@ -54,7 +59,7 @@ namespace ESPApp.Tests
             public MainViewModel Main { get; }
             public ConnectionViewModel Connection => Main.Connection;
             public EspToolExecutionViewModel Execution => Main.Execution;
-            public IReadOnlyList<PageNavigationItemViewModel> NavigationPages => Main.NavigationPages;
+            public IReadOnlyList<PageViewModelBase> NavigationPages => Main.NavigationPages;
             public PageViewModelBase CurrentPage => Main.CurrentPage;
 
             private FirmwarePageViewModel Firmware => Main.Firmware;
@@ -161,18 +166,36 @@ namespace ESPApp.Tests
             vm.NavigationPages[0].IsSelected.Should().BeTrue();
         }
 
+        [Fact(DisplayName = "DI: все страницы и общие ViewModel разрешаются как общие экземпляры")]
+        public void ViewModels_AreResolvedFromDependencyInjectionAsSingletons()
+        {
+            var vm = CreateViewModel();
+
+            using (new AssertionScope())
+            {
+                _provider!.GetRequiredService<ConnectionViewModel>().Should().BeSameAs(vm.Connection);
+                _provider.GetRequiredService<EspToolExecutionViewModel>().Should().BeSameAs(vm.Execution);
+                _provider.GetRequiredService<FirmwarePageViewModel>().Should().BeSameAs(vm.Main.Firmware);
+                _provider.GetRequiredService<MemoryPageViewModel>().Should().BeSameAs(vm.Main.Memory);
+                _provider.GetRequiredService<ChipInfoPageViewModel>().Should().BeSameAs(vm.Main.ChipInfo);
+                _provider.GetRequiredService<ToolsPageViewModel>().Should().BeSameAs(vm.Main.Tools);
+                _provider.GetRequiredService<WelcomeViewModel>().Should().BeSameAs(vm.Main.Welcome);
+                _provider.GetRequiredService<MainViewModel>().Should().BeSameAs(vm.Main);
+            }
+        }
+
         [Fact(DisplayName = "Навигация: переход переключает выбранную страницу")]
         public void NavigateCommand_ChangesCurrentPage()
         {
             var vm = CreateViewModel();
-            var memoryItem = vm.NavigationPages.Single(item => item.Page is MemoryPageViewModel);
+            var memoryPage = vm.NavigationPages.OfType<MemoryPageViewModel>().Single();
 
-            memoryItem.NavigateCommand.Execute(null);
+            memoryPage.NavigateCommand.Execute(null);
 
-            vm.CurrentPage.Should().BeSameAs(memoryItem.Page);
-            memoryItem.IsSelected.Should().BeTrue();
+            vm.CurrentPage.Should().BeSameAs(memoryPage);
+            memoryPage.IsSelected.Should().BeTrue();
             vm.NavigationPages
-                .Where(item => !ReferenceEquals(item, memoryItem))
+                .Where(page => !ReferenceEquals(page, memoryPage))
                 .Should()
                 .OnlyContain(item => !item.IsSelected);
         }

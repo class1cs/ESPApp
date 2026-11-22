@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 
+using ESPApp.UI.Services;
+
 namespace ESPApp.UI.ViewModels;
 
 public partial class ToolsPageViewModel : PageViewModelBase
@@ -13,8 +15,9 @@ public partial class ToolsPageViewModel : PageViewModelBase
     public ToolsPageViewModel(
         ConnectionViewModel connection,
         EspToolExecutionViewModel execution,
-        FirmwarePageViewModel firmware)
-        : base("Ещё", "", "")
+        FirmwarePageViewModel firmware,
+        IPageNavigationService navigationService)
+        : base("Ещё", "", "", navigationService)
     {
         _connection = connection;
         Execution = execution;

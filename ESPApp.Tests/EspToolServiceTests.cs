@@ -5,6 +5,7 @@ using ESPApp.Infrastructure.Models;
 using ESPApp.Infrastructure.Services;
 using ESPApp.UI.ViewModels;
 using FluentAssertions;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace ESPApp.Tests
 {
@@ -88,7 +89,7 @@ namespace ESPApp.Tests
                     ")\r\n" +
                     "echo ARGS: %*\r\n" +
                     "echo ENV: %PYTHONUNBUFFERED% %PYTHONIOENCODING%\r\n" +
-                    "echo some warning>&2\r\n" +
+                    "echo some warning 1>&2\r\n" +
                     $"{linesCommand}\r\n" +
                     $"{sleepCommand}\r\n" +
                     $"exit /b {exitCode}\r\n");
@@ -421,7 +422,8 @@ namespace ESPApp.Tests
         {
             // Arrange
             var recorder = new RecordingService();
-            var vm = new MainViewModel(recorder);
+            using var provider = TestApplicationHost.Create(recorder);
+            var vm = provider.GetRequiredService<MainViewModel>();
 
             // Shared connection options now belong to ConnectionViewModel.
             vm.Connection.SelectedPort = "COM3";

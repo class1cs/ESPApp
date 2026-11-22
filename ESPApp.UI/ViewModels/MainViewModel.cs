@@ -3,12 +3,15 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using ESPApp.Infrastructure.Interfaces;
 using ESPApp.Infrastructure.Models;
+using ESPApp.UI.Services;
 
 namespace ESPApp.UI.ViewModels;
 
 
 public partial class MainViewModel : ViewModelBase
 {
+    private readonly IPageNavigationService _navigationService;
+
     public ConnectionViewModel Connection { get; }
     public EspToolExecutionViewModel Execution { get; }
 
@@ -17,8 +20,8 @@ public partial class MainViewModel : ViewModelBase
     public ChipInfoPageViewModel ChipInfo { get; }
     public ToolsPageViewModel Tools { get; }
 
-    public IReadOnlyList<PageNavigationItemViewModel> NavigationPages { get; }
-    public WelcomeViewModel? Welcome { get; }
+    public IReadOnlyList<PageViewModelBase> NavigationPages { get; }
+    public WelcomeViewModel Welcome { get; }
 
     [ObservableProperty]
     private PageViewModelBase _currentPage = null!;
@@ -27,38 +30,41 @@ public partial class MainViewModel : ViewModelBase
     private bool _isWelcomeVisible;
 
     public MainViewModel(
-        IEspToolService espToolService,
-        IEspToolConfigurator? configurator = null,
-        ISettingsService? settingsService = null)
+        ConnectionViewModel connection,
+        EspToolExecutionViewModel execution,
+        FirmwarePageViewModel firmware,
+        MemoryPageViewModel memory,
+        ChipInfoPageViewModel chipInfo,
+        ToolsPageViewModel tools,
+        WelcomeViewModel welcome,
+        IPageNavigationService navigationService,
+        AppSettings settings,
+        IEspToolConfigurator configurator)
     {
-        Connection = new ConnectionViewModel();
-        Execution = new EspToolExecutionViewModel(espToolService, Connection);
-        Connection.LogMessage += Execution.AppendLog;
+        Connection = connection;
+        Execution = execution;
+        Firmware = firmware;
+        Memory = memory;
+        ChipInfo = chipInfo;
+        Tools = tools;
+        Welcome = welcome;
+        _navigationService = navigationService;
 
-        Firmware = new FirmwarePageViewModel(Connection, Execution);
-        Memory = new MemoryPageViewModel(Connection, Execution);
-        ChipInfo = new ChipInfoPageViewModel(Connection, Execution);
-        Tools = new ToolsPageViewModel(Connection, Execution, Firmware);
-
-        NavigationPages = new PageNavigationItemViewModel[]
+        NavigationPages = new PageViewModelBase[]
         {
-            new(Firmware, NavigateTo),
-            new(Memory, NavigateTo),
-            new(ChipInfo, NavigateTo),
-            new(Tools, NavigateTo)
+            Firmware,
+            Memory,
+            ChipInfo,
+            Tools
         };
 
-        CurrentPage = Firmware;
-        NavigationPages[0].IsSelected = true;
+        Connection.LogMessage += Execution.AppendLog;
+        _navigationService.CurrentPageChanged
+            += HandleNavigationPageChanged;
+        CurrentPage = _navigationService.CurrentPage ?? Firmware;
+        _navigationService.NavigateTo(CurrentPage);
 
         Connection.RefreshPorts();
-
-        if (configurator is null || settingsService is null)
-        {
-            return;
-        }
-
-        var settings = settingsService.Load();
         Connection.ApplyDefaults(settings);
 
         if (settings.IsConfigured)
@@ -66,14 +72,8 @@ public partial class MainViewModel : ViewModelBase
             configurator.Use(settings.ToSource());
         }
 
-        Welcome = new WelcomeViewModel(
-            configurator,
-            settingsService,
-            settings,
-            Connection.Chips,
-            Connection.Bauds,
-            OnWelcomeApplied,
-            () => IsWelcomeVisible = false);
+        Welcome.SettingsApplied += OnWelcomeApplied;
+        Welcome.CloseRequested += OnWelcomeClosed;
 
         IsWelcomeVisible = !settings.IsConfigured || settings.ShowWelcomeOnStart;
         if (IsWelcomeVisible)
@@ -85,25 +85,19 @@ public partial class MainViewModel : ViewModelBase
     [RelayCommand]
     private void ShowWelcome()
     {
-        if (Welcome is null)
-        {
-            return;
-        }
-
         Welcome.Reset();
         IsWelcomeVisible = true;
         _ = Welcome.DetectAsync();
     }
 
-    private void NavigateTo(PageViewModelBase page)
+    private void HandleNavigationPageChanged(
+        PageViewModelBase? page)
     {
-        foreach (var item in NavigationPages)
-        {
-            item.IsSelected = ReferenceEquals(item.Page, page);
-        }
-
-        CurrentPage = page;
+        if (page is not null)
+            CurrentPage = page;
     }
+
+    private void OnWelcomeClosed() => IsWelcomeVisible = false;
 
     private void OnWelcomeApplied(AppSettings settings, bool saved)
     {

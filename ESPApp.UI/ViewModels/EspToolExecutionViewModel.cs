@@ -12,7 +12,10 @@ using ESPApp.Infrastructure.Models;
 
 namespace ESPApp.UI.ViewModels;
 
-
+/// <summary>
+/// Coordinates esptool execution and owns the shared progress/log state.
+/// Feature-specific command construction stays in the corresponding page VM.
+/// </summary>
 public partial class EspToolExecutionViewModel : ViewModelBase
 {
     private readonly IEspToolService _espToolService;

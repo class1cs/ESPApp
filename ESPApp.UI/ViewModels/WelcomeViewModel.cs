@@ -13,16 +13,18 @@ using ESPApp.Infrastructure.Models;
 
 namespace ESPApp.UI.ViewModels
 {
-    public partial class WelcomeViewModel : ObservableObject
+    public partial class WelcomeViewModel : ViewModelBase
     {
         private readonly IEspToolConfigurator _configurator;
         private readonly ISettingsService _settingsService;
         private readonly AppSettings _settings;
-        private readonly Action<AppSettings, bool> _onApplied;
-        private readonly Action _onCancelled;
         private readonly Dictionary<EsptoolSourceKind, EsptoolProbe> _results = new();
         private CancellationTokenSource? _detectCts;
         private bool _selectionTouched;
+
+        public event Action<AppSettings, bool>? SettingsApplied;
+
+        public event Action? CloseRequested;
 
         public IReadOnlyList<string> Chips { get; }
 
@@ -83,18 +85,13 @@ namespace ESPApp.UI.ViewModels
             IEspToolConfigurator configurator,
             ISettingsService settingsService,
             AppSettings settings,
-            IReadOnlyList<string> chips,
-            IReadOnlyList<string> bauds,
-            Action<AppSettings, bool> onApplied,
-            Action onCancelled)
+            ConnectionViewModel connection)
         {
             _configurator = configurator;
             _settingsService = settingsService;
             _settings = settings;
-            _onApplied = onApplied;
-            _onCancelled = onCancelled;
-            Chips = chips;
-            Bauds = bauds;
+            Chips = connection.Chips;
+            Bauds = connection.Bauds;
             Reset();
         }
 
@@ -211,7 +208,7 @@ namespace ESPApp.UI.ViewModels
             _configurator.Use(_settings.ToSource());
             var saved = _settingsService.Save(_settings);
 
-            _onApplied(_settings, saved);
+            SettingsApplied?.Invoke(_settings, saved);
         }
 
         [RelayCommand]
@@ -220,7 +217,7 @@ namespace ESPApp.UI.ViewModels
             _detectCts?.Cancel();
             IsChecking = false;
             Reset();
-            _onCancelled();
+            CloseRequested?.Invoke();
         }
 
         partial void OnSelectedKindChanged(EsptoolSourceKind value)

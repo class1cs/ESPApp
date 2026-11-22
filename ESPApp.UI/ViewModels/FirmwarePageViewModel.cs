@@ -7,6 +7,7 @@ using System.Linq;
 using System.Text;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using ESPApp.UI.Services;
 using ESPApp.Infrastructure.Models;
 
 namespace ESPApp.UI.ViewModels;
@@ -15,8 +16,8 @@ public partial class FirmwarePageViewModel : PageViewModelBase
 {
     private readonly ConnectionViewModel _connection;
 
-    public FirmwarePageViewModel(ConnectionViewModel connection, EspToolExecutionViewModel execution)
-        : base("Прошивка", "Запись и проверка образов ESP", "▤")
+    public FirmwarePageViewModel(ConnectionViewModel connection, EspToolExecutionViewModel execution, IPageNavigationService navigationService)
+        : base("Прошивка", "Запись и проверка образов ESP", "▤", navigationService)
     {
         _connection = connection;
         Execution = execution;

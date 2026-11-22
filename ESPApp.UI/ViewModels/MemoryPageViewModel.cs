@@ -3,14 +3,16 @@ using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 
+using ESPApp.UI.Services;
+
 namespace ESPApp.UI.ViewModels;
 
 public partial class MemoryPageViewModel : PageViewModelBase
 {
     private readonly ConnectionViewModel _connection;
 
-    public MemoryPageViewModel(ConnectionViewModel connection, EspToolExecutionViewModel execution)
-        : base("Память", "Чтение, стирание и защита flash", "▦")
+    public MemoryPageViewModel(ConnectionViewModel connection, EspToolExecutionViewModel execution, IPageNavigationService navigationService)
+        : base("Память", "Чтение, стирание и защита flash", "▦", navigationService)
     {
         _connection = connection;
         Execution = execution;
