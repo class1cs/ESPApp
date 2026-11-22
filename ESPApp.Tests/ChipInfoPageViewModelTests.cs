@@ -37,7 +37,7 @@ public sealed class ChipInfoPageViewModelTests
 
         await host.ChipInfo.VersionCommand.ExecuteAsync(null);
 
-        host.EspToolService.LastArguments.Should().Be("version");
+        host.EspToolService.LastArguments.Should().Equal("version");
     }
 
     [Fact(DisplayName = "Информация о чипе: SFDP использует адрес и длину по умолчанию")]
@@ -48,7 +48,7 @@ public sealed class ChipInfoPageViewModelTests
 
         await host.ChipInfo.ReadSfdpCommand.ExecuteAsync(null);
 
-        host.EspToolService.LastArguments.Should().EndWith("read-flash-sfdp 0x0 4");
+        host.EspToolService.LastArguments!.TakeLast(3).Should().Equal("read-flash-sfdp", "0x0", "4");
     }
 
     [Fact(DisplayName = "Информация о чипе: пустые параметры SFDP блокируют команду")]

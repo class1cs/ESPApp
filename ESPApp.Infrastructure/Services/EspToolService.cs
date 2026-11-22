@@ -16,7 +16,7 @@ namespace ESPApp.Infrastructure.Services
     {
         private readonly string _pythonPath;
         private readonly string _bundledDirectory;
-        private (string FileName, string Prefix)? _launcher;
+        private (string FileName, IReadOnlyList<string> PrefixArguments)? _launcher;
         private EsptoolSource? _source;
 
         public EspToolService(string pythonPath = "python", string? bundledDirectory = null)
@@ -35,7 +35,7 @@ namespace ESPApp.Infrastructure.Services
 
         public async Task<EsptoolProbe> ProbeAsync(EsptoolSource source, CancellationToken cancellationToken = default)
         {
-            var (fileName, prefix) = LauncherFor(source);
+            var launcher = LauncherFor(source);
             var lines = new List<string>();
             var sync = new object();
 
@@ -54,7 +54,12 @@ namespace ESPApp.Infrastructure.Services
 
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             timeout.CancelAfter(TimeSpan.FromSeconds(30));
-            using var process = new Process { StartInfo = CreateStartInfo(fileName, prefix + "version") };
+            using var process = new Process
+            {
+                StartInfo = CreateStartInfo(
+                    launcher.FileName,
+                    launcher.PrefixArguments.Append("version"))
+            };
             process.OutputDataReceived += (_, args) => Collect(args.Data);
             process.ErrorDataReceived += (_, args) => Collect(args.Data);
 
@@ -64,6 +69,7 @@ namespace ESPApp.Infrastructure.Services
                 process.BeginOutputReadLine();
                 process.BeginErrorReadLine();
                 await process.WaitForExitAsync(timeout.Token);
+                process.WaitForExit();
             }
             catch (OperationCanceledException)
             {
@@ -77,7 +83,7 @@ namespace ESPApp.Infrastructure.Services
                 return new EsptoolProbe(false, source.Kind switch
                 {
                     EsptoolSourceKind.Python => "Python не найден",
-                    EsptoolSourceKind.Exe => $"файл не найден: {fileName}",
+                    EsptoolSourceKind.Exe => $"файл не найден: {launcher.FileName}",
                     _ => "команда esptool не найдена в PATH"
                 });
             }
@@ -111,10 +117,20 @@ namespace ESPApp.Infrastructure.Services
         }
 
         public async Task<EsptoolCommandResult> ExecuteCommandAsync(
-            string arguments,
+            IReadOnlyList<string> arguments,
             Action<string> onOutputLine,
             CancellationToken cancellationToken = default)
         {
+            ArgumentNullException.ThrowIfNull(arguments);
+            ArgumentNullException.ThrowIfNull(onOutputLine);
+
+            if (arguments.Count == 0 || string.IsNullOrWhiteSpace(arguments[0]))
+            {
+                const string message = "Не указана команда esptool.";
+                onOutputLine($"Ошибка: {message}");
+                return EsptoolCommandResult.Failure(message);
+            }
+
             var launcher = await ResolveLauncherAsync();
             if (launcher is null)
             {
@@ -123,9 +139,10 @@ namespace ESPApp.Infrastructure.Services
                 return EsptoolCommandResult.Failure(message);
             }
 
+            var processArguments = launcher.Value.PrefixArguments.Concat(arguments);
             using var process = new Process
             {
-                StartInfo = CreateStartInfo(launcher.Value.FileName, launcher.Value.Prefix + arguments)
+                StartInfo = CreateStartInfo(launcher.Value.FileName, processArguments)
             };
 
             process.OutputDataReceived += (_, args) =>
@@ -186,21 +203,21 @@ namespace ESPApp.Infrastructure.Services
             }
         }
 
-        private (string FileName, string Prefix) LauncherFor(EsptoolSource source)
+        private (string FileName, IReadOnlyList<string> PrefixArguments) LauncherFor(EsptoolSource source)
         {
             return source.Kind switch
             {
                 EsptoolSourceKind.Python => (
                     string.IsNullOrWhiteSpace(source.PythonPath) ? _pythonPath : source.PythonPath.Trim(),
-                    "-u -m esptool "),
+                    new[] { "-u", "-m", "esptool" }),
                 EsptoolSourceKind.Exe => (
                     string.IsNullOrWhiteSpace(source.ExePath) ? DefaultBundledPath() : source.ExePath.Trim(),
-                    string.Empty),
-                _ => ("esptool", string.Empty)
+                    Array.Empty<string>()),
+                _ => ("esptool", Array.Empty<string>())
             };
         }
 
-        private async Task<(string FileName, string Prefix)?> ResolveLauncherAsync()
+        private async Task<(string FileName, IReadOnlyList<string> PrefixArguments)?> ResolveLauncherAsync()
         {
             if (_launcher is not null)
             {
@@ -213,28 +230,27 @@ namespace ESPApp.Infrastructure.Services
                 return _launcher;
             }
 
-            if (await CanRunAsync(_pythonPath, "-c \"import esptool\""))
+            if (await CanRunAsync(_pythonPath, new[] { "-c", "import esptool" }))
             {
-                _launcher = (_pythonPath, "-u -m esptool ");
+                _launcher = (_pythonPath, new[] { "-u", "-m", "esptool" });
                 return _launcher;
             }
 
             var bundled = FindBundledEsptool();
             if (bundled is not null)
             {
-                _launcher = (bundled, string.Empty);
+                _launcher = (bundled, Array.Empty<string>());
                 return _launcher;
             }
 
             return null;
         }
 
-        private static ProcessStartInfo CreateStartInfo(string fileName, string arguments)
+        private static ProcessStartInfo CreateStartInfo(string fileName, IEnumerable<string> arguments)
         {
             var startInfo = new ProcessStartInfo
             {
                 FileName = fileName,
-                Arguments = arguments,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
                 StandardOutputEncoding = Encoding.UTF8,
@@ -242,31 +258,31 @@ namespace ESPApp.Infrastructure.Services
                 UseShellExecute = false,
                 CreateNoWindow = true
             };
+
+            foreach (var argument in arguments)
+            {
+                startInfo.ArgumentList.Add(argument);
+            }
+
             startInfo.Environment["PYTHONUNBUFFERED"] = "1";
             startInfo.Environment["PYTHONIOENCODING"] = "utf-8";
             return startInfo;
         }
 
-        private static async Task<bool> CanRunAsync(string fileName, string arguments)
+        private static async Task<bool> CanRunAsync(string fileName, IReadOnlyList<string> arguments)
         {
             try
             {
-                using var process = Process.Start(new ProcessStartInfo
-                {
-                    FileName = fileName,
-                    Arguments = arguments,
-                    UseShellExecute = false,
-                    CreateNoWindow = true,
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true
-                });
-
+                using var process = Process.Start(CreateStartInfo(fileName, arguments));
                 if (process is null)
                 {
                     return false;
                 }
 
+                var standardOutput = process.StandardOutput.ReadToEndAsync();
+                var standardError = process.StandardError.ReadToEndAsync();
                 await process.WaitForExitAsync();
+                await Task.WhenAll(standardOutput, standardError);
                 return process.ExitCode == 0;
             }
             catch

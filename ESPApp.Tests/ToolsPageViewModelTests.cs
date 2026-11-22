@@ -5,7 +5,7 @@ namespace ESPApp.Tests;
 [Trait("Category", "Unit")]
 public sealed class ToolsPageViewModelTests
 {
-    [Fact(DisplayName = "Инструменты: чтение памяти передаёт указанный адрес")]
+    [Fact(DisplayName = "Инструменты: чтение памяти передаёт указанный адрес отдельным аргументом")]
     public async Task ReadMem_SendsAddress()
     {
         using var host = TestApplicationHost.Create();
@@ -14,7 +14,7 @@ public sealed class ToolsPageViewModelTests
 
         await host.Tools.ReadMemCommand.ExecuteAsync(null);
 
-        host.EspToolService.LastArguments.Should().EndWith("read-mem 0x3ff00000");
+        host.EspToolService.LastArguments!.TakeLast(2).Should().Equal("read-mem", "0x3ff00000");
     }
 
     [Fact(DisplayName = "Инструменты: запись в память без значения не запускается")]
@@ -39,7 +39,7 @@ public sealed class ToolsPageViewModelTests
 
         await host.Tools.WriteMemCommand.ExecuteAsync(null);
 
-        host.EspToolService.LastArguments.Should().EndWith("write-mem 0x3ff00000 0x1");
+        host.EspToolService.LastArguments!.TakeLast(3).Should().Equal("write-mem", "0x3ff00000", "0x1");
     }
 
     [Fact(DisplayName = "Инструменты: запись в память добавляет маску последним аргументом")]
@@ -53,34 +53,35 @@ public sealed class ToolsPageViewModelTests
 
         await host.Tools.WriteMemCommand.ExecuteAsync(null);
 
-        host.EspToolService.LastArguments.Should().EndWith("write-mem 0x3ff00000 0x1 0xff");
+        host.EspToolService.LastArguments!.TakeLast(4).Should().Equal("write-mem", "0x3ff00000", "0x1", "0xff");
     }
 
-    [Fact(DisplayName = "Инструменты: дамп памяти передаёт адрес, размер и путь в кавычках")]
-    public async Task DumpMem_SendsAddressSizeAndQuotedPath()
+    [Fact(DisplayName = "Инструменты: дамп памяти передаёт путь с пробелами одним аргументом")]
+    public async Task DumpMem_PreservesOutputPathAsSingleArgument()
     {
         using var host = TestApplicationHost.Create();
         host.Connection.SelectedPort = "COM3";
         host.Tools.DumpAddress = "0x40000000";
         host.Tools.DumpSize = "0x1000";
-        host.Tools.DumpPath = "dump file.bin";
+        host.Tools.DumpPath = "C:/firmware backups/dump image.bin";
 
         await host.Tools.DumpMemCommand.ExecuteAsync(null);
 
-        host.EspToolService.LastArguments.Should()
-            .EndWith("dump-mem 0x40000000 0x1000 \"dump file.bin\"");
+        host.EspToolService.LastArguments!.TakeLast(4).Should().Equal(
+            "dump-mem", "0x40000000", "0x1000", "C:/firmware backups/dump image.bin");
     }
 
-    [Fact(DisplayName = "Инструменты: загрузка в RAM передаёт путь к файлу в кавычках")]
-    public async Task LoadRam_SendsQuotedPath()
+    [Fact(DisplayName = "Инструменты: загрузка в RAM передаёт путь с пробелами одним аргументом")]
+    public async Task LoadRam_PreservesPathAsSingleArgument()
     {
         using var host = TestApplicationHost.Create();
         host.Connection.SelectedPort = "COM3";
-        host.Tools.LoadRamPath = "C:/my fw/app.bin";
+        host.Tools.LoadRamPath = "C:/my firmware/app image.bin";
 
         await host.Tools.LoadRamCommand.ExecuteAsync(null);
 
-        host.EspToolService.LastArguments.Should().EndWith("load-ram \"C:/my fw/app.bin\"");
+        host.EspToolService.LastArguments!.TakeLast(2).Should().Equal(
+            "load-ram", "C:/my firmware/app image.bin");
     }
 
     [Fact(DisplayName = "Инструменты: run вызывает одноимённую подкоманду")]
@@ -91,7 +92,7 @@ public sealed class ToolsPageViewModelTests
 
         await host.Tools.RunCodeCommand.ExecuteAsync(null);
 
-        host.EspToolService.LastArguments.Should().EndWith(" run");
+        host.EspToolService.LastArguments.Should().EndWith("run");
     }
 
     [Fact(DisplayName = "Инструменты: image-info работает без COM-порта")]
@@ -102,7 +103,7 @@ public sealed class ToolsPageViewModelTests
 
         await host.Tools.ImageInfoCommand.ExecuteAsync(null);
 
-        host.EspToolService.LastArguments.Should().Be("image-info \"firmware image.bin\"");
+        host.EspToolService.LastArguments.Should().Equal("image-info", "firmware image.bin");
         host.EspToolService.LastArguments.Should().NotContain("--port");
     }
 
@@ -143,22 +144,22 @@ public sealed class ToolsPageViewModelTests
 
         await host.Tools.Elf2ImageCommand.ExecuteAsync(null);
 
-        host.EspToolService.LastArguments.Should().Contain("--chip esp32")
-            .And.Contain("elf2image")
-            .And.NotContain("--port");
+        host.EspToolService.LastArguments.Should().ContainInOrder("--chip", "esp32", "elf2image");
+        host.EspToolService.LastArguments.Should().NotContain("--port");
     }
 
     [Fact(DisplayName = "Инструменты: ELF2image передаёт выходной файл перед входным")]
-    public async Task Elf2Image_PassesOutputThenInputInQuotes()
+    public async Task Elf2Image_PassesOutputThenInput()
     {
         using var host = TestApplicationHost.Create();
         host.Connection.SelectedChip = "esp32";
         host.Tools.ElfPath = "app.elf";
-        host.Tools.ElfOutputPath = "app.bin";
+        host.Tools.ElfOutputPath = "generated output/app image.bin";
 
         await host.Tools.Elf2ImageCommand.ExecuteAsync(null);
 
-        host.EspToolService.LastArguments.Should().EndWith("-o \"app.bin\" \"app.elf\"");
+        host.EspToolService.LastArguments!.TakeLast(3).Should().Equal(
+            "-o", "generated output/app image.bin", "app.elf");
     }
 
     [Fact(DisplayName = "Инструменты: merge-bin требует конкретный чип")]
@@ -190,17 +191,18 @@ public sealed class ToolsPageViewModelTests
     {
         using var host = TestApplicationHost.Create();
         host.Connection.SelectedChip = "esp32";
-        host.Tools.MergeOutputPath = "merged.bin";
+        host.Tools.MergeOutputPath = "merged result.bin";
         host.Firmware.FlashItems[0].Address = "0x0";
-        host.Firmware.FlashItems[0].FilePath = "boot.bin";
+        host.Firmware.FlashItems[0].FilePath = "boot image.bin";
 
         await host.Tools.MergeBinCommand.ExecuteAsync(null);
 
-        host.EspToolService.LastArguments.Should().Contain("merge-bin -o \"merged.bin\"")
-            .And.Contain("0x0 \"boot.bin\"");
+        host.EspToolService.LastArguments.Should().ContainInOrder(
+            "merge-bin", "-o", "merged result.bin", "--format", "raw");
+        host.EspToolService.LastArguments.Should().ContainInOrder("0x0", "boot image.bin");
     }
 
-    [Fact(DisplayName = "Инструменты: merge-bin передаёт формат и параметры Flash")]
+    [Fact(DisplayName = "Инструменты: merge-bin передаёт формат и параметры Flash отдельными аргументами")]
     public async Task MergeBin_PassesFormatAndFlashOptions()
     {
         using var host = TestApplicationHost.Create();
@@ -212,7 +214,7 @@ public sealed class ToolsPageViewModelTests
 
         await host.Tools.MergeBinCommand.ExecuteAsync(null);
 
-        host.EspToolService.LastArguments.Should().Contain("--format uf2")
-            .And.Contain("--flash-mode dio");
+        host.EspToolService.LastArguments.Should().ContainInOrder("--format", "uf2");
+        host.EspToolService.LastArguments.Should().ContainInOrder("--flash-mode", "dio");
     }
 }

@@ -1,10 +1,9 @@
 using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.ComponentModel;
+using System.Linq;
 using System.Threading.Tasks;
 using System.Collections.ObjectModel;
-using System.Linq;
-using System.Text;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using ESPApp.UI.Services;
@@ -87,14 +86,16 @@ public partial class FirmwarePageViewModel : PageViewModelBase
         if (!TryGetFlashPairs(out var pairs)) return;
         ClearVerificationStatus();
 
-        var command = new StringBuilder("write-flash ");
-        command.Append(FlashOptions());
-        if (EraseAll) command.Append(" --erase-all");
-        if (NoCompress) command.Append(" --no-compress");
-        if (Force) command.Append(" --force");
-        command.Append(' ').Append(pairs);
+        var commandArguments = new List<string> { "write-flash" };
+        commandArguments.AddRange(FlashOptions());
+        if (EraseAll) commandArguments.Add("--erase-all");
+        if (NoCompress) commandArguments.Add("--no-compress");
+        if (Force) commandArguments.Add("--force");
+        commandArguments.AddRange(pairs);
 
-        await Execution.ExecuteAsync($"[{_connection.SelectedPort}] Запись прошивки...", command.ToString());
+        await Execution.ExecuteAsync(
+            $"[{_connection.SelectedPort}] Запись прошивки...",
+            commandArguments);
     }
 
     [RelayCommand]
@@ -110,10 +111,13 @@ public partial class FirmwarePageViewModel : PageViewModelBase
         }
 
         IsVerificationRunning = true;
-        var command = "verify-flash " + (VerifyDiff ? "--diff " : string.Empty) + pairs;
+        var commandArguments = new List<string> { "verify-flash" };
+        if (VerifyDiff) commandArguments.Add("--diff");
+        commandArguments.AddRange(pairs);
+
         var result = await Execution.ExecuteAsync(
             $"[{_connection.SelectedPort}] Проверка прошивки...",
-            command);
+            commandArguments);
 
         IsVerificationRunning = false;
         switch (result.Status)
@@ -186,12 +190,16 @@ public partial class FirmwarePageViewModel : PageViewModelBase
         }
     }
 
-    public string FlashOptions() =>
-        $"--flash-mode {FlashMode} --flash-freq {FlashFreq} --flash-size {FlashSize}";
-
-    public bool TryGetFlashPairs(out string pairs)
+    public IReadOnlyList<string> FlashOptions() => new[]
     {
-        pairs = string.Empty;
+        "--flash-mode", FlashMode.Trim(),
+        "--flash-freq", FlashFreq.Trim(),
+        "--flash-size", FlashSize.Trim()
+    };
+
+    public bool TryGetFlashPairs(out IReadOnlyList<string> pairs)
+    {
+        pairs = System.Array.Empty<string>();
         var items = FlashItems.ToList();
         var invalid = items.Count == 0
                       || items.Any(item => string.IsNullOrWhiteSpace(item.Address)
@@ -202,8 +210,9 @@ public partial class FirmwarePageViewModel : PageViewModelBase
             return false;
         }
 
-        pairs = string.Join(" ", items.Select(item =>
-            $"{item.Address.Trim()} {CommandText.Quote(item.FilePath)}"));
+        pairs = items
+            .SelectMany(item => new[] { item.Address.Trim(), item.FilePath.Trim() })
+            .ToArray();
         return true;
     }
 

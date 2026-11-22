@@ -26,7 +26,7 @@ public sealed class MemoryPageViewModelTests
 
         await host.Memory.EraseRegionCommand.ExecuteAsync(null);
 
-        host.EspToolService.LastArguments.Should().EndWith("erase-region 0x10000 0x1000");
+        host.EspToolService.LastArguments!.TakeLast(3).Should().Equal("erase-region", "0x10000", "0x1000");
     }
 
     [Theory(DisplayName = "Стирание региона: отсутствие адреса или размера блокирует команду")]
@@ -44,17 +44,17 @@ public sealed class MemoryPageViewModelTests
         host.EspToolService.CallCount.Should().Be(0);
     }
 
-    [Fact(DisplayName = "Чтение Flash: адрес, размер и путь передаются в кавычках")]
-    public async Task ReadFlash_SendsAddressSizeAndQuotedPath()
+    [Fact(DisplayName = "Чтение Flash: путь с пробелами передаётся одним аргументом без ручных кавычек")]
+    public async Task ReadFlash_PreservesPathAsSingleArgument()
     {
         using var host = TestApplicationHost.Create();
         host.Connection.SelectedPort = "COM3";
-        host.Memory.ReadPath = "C:/backup file.bin";
+        host.Memory.ReadPath = "C:/backup files/flash backup.bin";
 
         await host.Memory.ReadFlashCommand.ExecuteAsync(null);
 
-        host.EspToolService.LastArguments.Should()
-            .EndWith("read-flash 0x0 ALL \"C:/backup file.bin\"");
+        host.EspToolService.LastArguments!.TakeLast(4).Should().Equal(
+            "read-flash", "0x0", "ALL", "C:/backup files/flash backup.bin");
     }
 
     [Fact(DisplayName = "Чтение регистра статуса: передаётся выбранное количество байт")]
@@ -66,7 +66,7 @@ public sealed class MemoryPageViewModelTests
 
         await host.Memory.ReadFlashStatusCommand.ExecuteAsync(null);
 
-        host.EspToolService.LastArguments.Should().EndWith("read-flash-status --bytes 3");
+        host.EspToolService.LastArguments!.TakeLast(3).Should().Equal("read-flash-status", "--bytes", "3");
     }
 
     [Fact(DisplayName = "Запись регистра статуса: non-volatile добавляется при включённой настройке")]
@@ -79,8 +79,8 @@ public sealed class MemoryPageViewModelTests
 
         await host.Memory.WriteFlashStatusCommand.ExecuteAsync(null);
 
-        host.EspToolService.LastArguments.Should()
-            .EndWith("write-flash-status --non-volatile --bytes 2 0x40");
+        host.EspToolService.LastArguments!.TakeLast(5).Should().Equal(
+            "write-flash-status", "--non-volatile", "--bytes", "2", "0x40");
     }
 
     [Fact(DisplayName = "Запись регистра статуса: non-volatile не добавляется при выключенной настройке")]
@@ -92,8 +92,8 @@ public sealed class MemoryPageViewModelTests
 
         await host.Memory.WriteFlashStatusCommand.ExecuteAsync(null);
 
-        host.EspToolService.LastArguments.Should()
-            .EndWith("write-flash-status --bytes 2 0x40");
+        host.EspToolService.LastArguments!.TakeLast(4).Should()
+            .Equal("write-flash-status", "--bytes", "2", "0x40");
         host.EspToolService.LastArguments.Should().NotContain("--non-volatile");
     }
 

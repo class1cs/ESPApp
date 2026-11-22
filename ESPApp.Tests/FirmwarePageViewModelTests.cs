@@ -26,19 +26,21 @@ public sealed class FirmwarePageViewModelTests
         }
     }
 
-    [Fact(DisplayName = "Прошивка: команда write-flash содержит COM-порт, адрес и путь в кавычках")]
-    public async Task Flash_WithFile_BuildsWriteFlashCommand()
+    [Fact(DisplayName = "Прошивка: путь с пробелами передаётся одним аргументом без ручных кавычек")]
+    public async Task Flash_PreservesFilePathAsSingleArgument()
     {
         using var host = TestApplicationHost.Create();
         host.Connection.SelectedPort = "COM3";
         host.Firmware.FlashItems[0].Address = "0x1000";
-        host.Firmware.FlashItems[0].FilePath = "C:/my fw/boot.bin";
+        host.Firmware.FlashItems[0].FilePath = "C:/my firmware files/boot image.bin";
 
         await host.Firmware.FlashCommand.ExecuteAsync(null);
 
-        host.EspToolService.LastArguments.Should().Contain("--port COM3")
-            .And.Contain("write-flash")
-            .And.Contain("0x1000 \"C:/my fw/boot.bin\"");
+        host.EspToolService.LastArguments.Should().ContainInOrder(
+            "write-flash", "--flash-mode", "keep", "--flash-freq", "keep", "--flash-size", "keep",
+            "0x1000", "C:/my firmware files/boot image.bin");
+        host.EspToolService.LastArguments.Should().NotContain("C:/my");
+        host.EspToolService.LastArguments.Should().NotContain("firmware");
     }
 
     [Fact(DisplayName = "Прошивка: без выбранного файла команда не запускается")]
@@ -80,7 +82,7 @@ public sealed class FirmwarePageViewModelTests
         host.EspToolService.CallCount.Should().Be(0);
     }
 
-    [Fact(DisplayName = "Прошивка: режим, частота и размер Flash попадают в команду")]
+    [Fact(DisplayName = "Прошивка: режим, частота и размер Flash передаются отдельными аргументами")]
     public async Task Flash_PassesFlashOptions()
     {
         using var host = TestApplicationHost.Create();
@@ -93,8 +95,8 @@ public sealed class FirmwarePageViewModelTests
 
         await vm.FlashCommand.ExecuteAsync(null);
 
-        host.EspToolService.LastArguments.Should()
-            .Contain("--flash-mode dio --flash-freq 80m --flash-size 4MB");
+        host.EspToolService.LastArguments.Should().ContainInOrder(
+            "--flash-mode", "dio", "--flash-freq", "80m", "--flash-size", "4MB");
     }
 
     [Fact(DisplayName = "Прошивка: включённые флаги добавляются в write-flash")]
@@ -146,8 +148,8 @@ public sealed class FirmwarePageViewModelTests
 
         await vm.FlashCommand.ExecuteAsync(null);
 
-        host.EspToolService.LastArguments.Should()
-            .EndWith("0x1000 \"boot.bin\" 0x8000 \"table.bin\"");
+        host.EspToolService.LastArguments!.TakeLast(4).Should().Equal(
+            "0x1000", "boot.bin", "0x8000", "table.bin");
     }
 
     [Fact(DisplayName = "Список прошивки: команда добавляет и удаляет строку")]

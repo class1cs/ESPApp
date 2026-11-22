@@ -11,7 +11,7 @@ namespace ESPApp.Tests
     {
         public static async Task<List<string>> RunAsync(
             IEspToolService service,
-            string arguments,
+            IReadOnlyList<string> arguments,
             CancellationToken cancellationToken = default)
         {
             var lines = new List<string>();
@@ -43,7 +43,7 @@ namespace ESPApp.Tests
 
         private static async Task<bool> CheckAsync()
         {
-            var lines = await Runner.RunAsync(new EspToolService(), "version");
+            var lines = await Runner.RunAsync(new EspToolService(), new[] { "version" });
             return lines.Contains("Готово.");
         }
     }
@@ -63,9 +63,15 @@ namespace ESPApp.Tests
             }
         }
 
-        public FakePython(int exitCode = 0, int probeExitCode = 0, int sleepSeconds = 0, int outputLines = 0)
+        public FakePython(
+            int exitCode = 0,
+            int probeExitCode = 0,
+            int sleepSeconds = 0,
+            int outputLines = 0,
+            bool directoryWithSpaces = false)
         {
-            _directory = Path.Combine(Path.GetTempPath(), "fake-python-" + Guid.NewGuid().ToString("N"));
+            var directoryName = directoryWithSpaces ? "fake python-" : "fake-python-";
+            _directory = Path.Combine(Path.GetTempPath(), directoryName + Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(_directory);
 
             if (OperatingSystem.IsWindows())
@@ -81,13 +87,14 @@ namespace ESPApp.Tests
 
                 File.WriteAllText(FilePath,
                     "@echo off\r\n" +
-                    "if \"%~1\"==\"-c\" (\r\n" +
+                    "if \"%~1\"==\"-c\" if \"%~2\"==\"import esptool\" (\r\n" +
                     "  echo x>>\"%~dp0probes.txt\"\r\n" +
                     $"  exit /b {probeExitCode}\r\n" +
                     ")\r\n" +
                     "echo ARGS: %*\r\n" +
+                    "for %%A in (%*) do echo ARG[%%~A]\r\n" +
                     "echo ENV: %PYTHONUNBUFFERED% %PYTHONIOENCODING%\r\n" +
-                    "echo some warning 1>&2\r\n" +
+                    "echo some warning>&2\r\n" +
                     $"{linesCommand}\r\n" +
                     $"{sleepCommand}\r\n" +
                     $"exit /b {exitCode}\r\n");
@@ -100,11 +107,12 @@ namespace ESPApp.Tests
 
                 File.WriteAllText(FilePath,
                     "#!/bin/sh\n" +
-                    "if [ \"$1\" = \"-c\" ]; then\n" +
+                    "if [ \"$1\" = \"-c\" ] && [ \"$2\" = \"import esptool\" ]; then\n" +
                     "  echo x >> \"$(dirname \"$0\")/probes.txt\"\n" +
                     $"  exit {probeExitCode}\n" +
                     "fi\n" +
                     "echo \"ARGS: $@\"\n" +
+                    "for arg do printf 'ARG[%s]\\n' \"$arg\"; done\n" +
                     "echo \"ENV: $PYTHONUNBUFFERED $PYTHONIOENCODING\"\n" +
                     "echo \"some warning\" 1>&2\n" +
                     $"i=1; while [ $i -le {outputLines} ]; do echo \"LINE $i\"; i=$((i+1)); done\n" +
@@ -132,7 +140,9 @@ namespace ESPApp.Tests
     {
         public string Folder { get; }
 
-        public string Arguments => OperatingSystem.IsWindows() ? "/c echo BUNDLED_OK" : "run";
+        public IReadOnlyList<string> Arguments => OperatingSystem.IsWindows()
+            ? new[] { "/c", "echo", "BUNDLED_OK" }
+            : new[] { "run" };
 
         public FakeBundled()
         {
@@ -182,12 +192,36 @@ namespace ESPApp.Tests
             // Act
             var lines = new List<string>();
             var result = await service.ExecuteCommandAsync(
-                "--port COM3 chip-id", lines.Add);
+                new[] { "--port", "COM3", "chip-id" }, lines.Add);
 
             // Assert
             lines.Should().Contain("ARGS: -u -m esptool --port COM3 chip-id");
+            lines.Should().Contain("ARG[-u]");
+            lines.Should().Contain("ARG[-m]");
+            lines.Should().Contain("ARG[esptool]");
+            lines.Should().Contain("ARG[--port]");
+            lines.Should().Contain("ARG[COM3]");
+            lines.Should().Contain("ARG[chip-id]");
             lines.Should().Contain("Готово.");
             result.Status.Should().Be(EsptoolCommandStatus.Succeeded);
+        }
+
+        [Fact(DisplayName = "Запуск: путь с пробелами передаётся одним аргументом, а путь к Python тоже может содержать пробелы")]
+        public async Task Execute_PreservesArgumentsAndLauncherPathsWithSpaces()
+        {
+            using var fake = new FakePython(directoryWithSpaces: true);
+            var service = new EspToolService(fake.FilePath, NoBundled);
+            const string imagePath = "C:/firmware build/boot image.bin";
+
+            var lines = await Runner.RunAsync(service, new[] { "load-ram", imagePath });
+
+            lines.Should().Contain("ARG[-u]");
+            lines.Should().Contain("ARG[-m]");
+            lines.Should().Contain("ARG[esptool]");
+            lines.Should().Contain("ARG[load-ram]");
+            lines.Should().Contain($"ARG[{imagePath}]");
+            lines.Should().NotContain("ARG[C:/firmware]");
+            lines.Should().NotContain("ARG[build/boot]");
         }
 
         [Fact(DisplayName = "Запуск: вывод ошибок esptool получает префикс [ERR]")]
@@ -198,7 +232,7 @@ namespace ESPApp.Tests
             var service = new EspToolService(fake.FilePath, NoBundled);
 
             // Act
-            var lines = await Runner.RunAsync(service, "version");
+            var lines = await Runner.RunAsync(service, new[] { "version" });
 
             // Assert
             lines.Should().Contain("[ERR] some warning");
@@ -212,7 +246,7 @@ namespace ESPApp.Tests
             var service = new EspToolService(fake.FilePath, NoBundled);
 
             // Act
-            var lines = await Runner.RunAsync(service, "version");
+            var lines = await Runner.RunAsync(service, new[] { "version" });
 
             // Assert
             lines.Should().Contain("ENV: 1 utf-8");
@@ -227,7 +261,7 @@ namespace ESPApp.Tests
 
             // Act
             var lines = new List<string>();
-            var result = await service.ExecuteCommandAsync("chip-id", lines.Add);
+            var result = await service.ExecuteCommandAsync(new[] { "chip-id" }, lines.Add);
 
             // Assert
             lines.Should().Contain(l => l.Contains("код: 3"));
@@ -245,7 +279,7 @@ namespace ESPApp.Tests
             var service = new EspToolService(fake.FilePath, NoBundled);
 
             // Act
-            var lines = await Runner.RunAsync(service, "version");
+            var lines = await Runner.RunAsync(service, new[] { "version" });
 
             // Assert
             var numbered = lines.Where(l => l.StartsWith("LINE ")).ToList();
@@ -261,7 +295,7 @@ namespace ESPApp.Tests
             var service = new EspToolService(fake.FilePath, NoBundled);
 
             // Act
-            var lines = await Runner.RunAsync(service, "version");
+            var lines = await Runner.RunAsync(service, new[] { "version" });
 
             // Assert
             lines.Should().Contain(l => l.Contains("esptool не найден"));
@@ -274,7 +308,7 @@ namespace ESPApp.Tests
             var service = new EspToolService("no-such-python-xyz", NoBundled);
 
             // Act
-            var lines = await Runner.RunAsync(service, "version");
+            var lines = await Runner.RunAsync(service, new[] { "version" });
 
             // Assert
             lines.Should().Contain(l => l.Contains("esptool не найден"));
@@ -289,7 +323,7 @@ namespace ESPApp.Tests
             var service = new EspToolService(fake.FilePath, bundled.Folder);
 
             // Act
-            var lines = await Runner.RunAsync(service, "--port COM3 chip-id");
+            var lines = await Runner.RunAsync(service, new[] { "--port", "COM3", "chip-id" });
 
             // Assert
             lines.Should().Contain("ARGS: -u -m esptool --port COM3 chip-id");
@@ -335,8 +369,8 @@ namespace ESPApp.Tests
             var service = new EspToolService(fake.FilePath, NoBundled);
 
             // Act
-            await Runner.RunAsync(service, "version");
-            await Runner.RunAsync(service, "version");
+            await Runner.RunAsync(service, new[] { "version" });
+            await Runner.RunAsync(service, new[] { "version" });
 
             // Assert
             fake.ProbeCount.Should().Be(1);
@@ -352,7 +386,7 @@ namespace ESPApp.Tests
             var stopwatch = Stopwatch.StartNew();
 
             // Act
-            var lines = await Runner.RunAsync(service, "chip-id", cts.Token);
+            var lines = await Runner.RunAsync(service, new[] { "chip-id" }, cts.Token);
             stopwatch.Stop();
 
             // Assert
@@ -365,7 +399,7 @@ namespace ESPApp.Tests
     [Trait("Requires", "esptool")]
     public class EsptoolContractTests
     {
-        private static async Task<string> HelpAsync(string arguments)
+        private static async Task<string> HelpAsync(IReadOnlyList<string> arguments)
         {
             // Arrange
             Skip.IfNot(
@@ -472,7 +506,8 @@ namespace ESPApp.Tests
             await command.ExecuteAsync(null);
 
             // Act
-            var help = await HelpAsync($"{host.EspToolService.LastArguments} --help");
+            var helpArguments = host.EspToolService.LastArguments!.Concat(new[] { "--help" }).ToArray();
+            var help = await HelpAsync(helpArguments);
 
             // Assert
             help.Should().NotBeEmpty();

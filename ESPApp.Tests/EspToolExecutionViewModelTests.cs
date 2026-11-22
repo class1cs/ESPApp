@@ -11,7 +11,7 @@ public sealed class EspToolExecutionViewModelTests
     {
         using var host = TestApplicationHost.Create();
 
-        var result = await host.Execution.ExecuteAsync("Тест", "chip-id");
+        var result = await host.Execution.ExecuteAsync("Тест", new[] { "chip-id" });
 
         result.Status.Should().Be(EsptoolCommandStatus.Rejected);
         result.Message.Should().Contain("COM-порт");
@@ -24,7 +24,7 @@ public sealed class EspToolExecutionViewModelTests
         using var host = TestApplicationHost.Create();
         host.Connection.SelectedPort = "   ";
 
-        var result = await host.Execution.ExecuteAsync("Тест", "chip-id");
+        var result = await host.Execution.ExecuteAsync("Тест", new[] { "chip-id" });
 
         result.Status.Should().Be(EsptoolCommandStatus.Rejected);
         host.EspToolService.CallCount.Should().Be(0);
@@ -35,10 +35,10 @@ public sealed class EspToolExecutionViewModelTests
     {
         using var host = TestApplicationHost.Create();
 
-        var result = await host.Execution.ExecuteAsync("Версия", "version", needsPort: false);
+        var result = await host.Execution.ExecuteAsync("Версия", new[] { "version" }, needsPort: false);
 
         result.Status.Should().Be(EsptoolCommandStatus.Succeeded);
-        host.EspToolService.LastArguments.Should().Be("version");
+        host.EspToolService.LastArguments.Should().Equal("version");
         host.EspToolService.CallCount.Should().Be(1);
     }
 
@@ -48,7 +48,7 @@ public sealed class EspToolExecutionViewModelTests
         using var host = TestApplicationHost.Create();
         host.Connection.SelectedPort = "COM3";
 
-        var result = await host.Execution.ExecuteAsync("Тест", "elf2image", needsPort: false, needsChip: true);
+        var result = await host.Execution.ExecuteAsync("Тест", new[] { "elf2image" }, needsPort: false, needsChip: true);
 
         result.Status.Should().Be(EsptoolCommandStatus.Rejected);
         result.Message.Should().Contain("конкретный чип");
@@ -68,11 +68,12 @@ public sealed class EspToolExecutionViewModelTests
 
         var arguments = host.Execution.BuildGlobalArguments(online: true);
 
-        arguments.Should().Contain("--port COM3")
-            .And.Contain("--baud 921600")
-            .And.Contain("--before usb-reset")
-            .And.Contain("--after no-reset")
-            .And.Contain("--connect-attempts 3");
+        arguments.Should().ContainInOrder(
+            "--port", "COM3",
+            "--baud", "921600",
+            "--before", "usb-reset",
+            "--after", "no-reset",
+            "--connect-attempts", "3");
     }
 
     [Fact(DisplayName = "Аргументы подключения: отрицательное число попыток ограничивается нулём")]
@@ -82,7 +83,7 @@ public sealed class EspToolExecutionViewModelTests
         host.Connection.ConnectAttempts = -5;
 
         host.Execution.BuildGlobalArguments(online: true)
-            .Should().Contain("--connect-attempts 0");
+            .Should().ContainInOrder("--connect-attempts", "0");
     }
 
     [Theory(DisplayName = "Аргументы подключения: --chip добавляется только для конкретного чипа")]
@@ -95,7 +96,11 @@ public sealed class EspToolExecutionViewModelTests
 
         var arguments = host.Execution.BuildGlobalArguments(online: true);
 
-        arguments.Contains($"--chip {chip}").Should().Be(expected);
+        arguments.Contains("--chip").Should().Be(expected);
+        if (expected)
+        {
+            arguments.Should().ContainInOrder("--chip", chip);
+        }
     }
 
     [Fact(DisplayName = "Аргументы подключения: флаги no-stub и trace по умолчанию отсутствуют")]
@@ -126,10 +131,11 @@ public sealed class EspToolExecutionViewModelTests
         using var host = TestApplicationHost.Create();
         host.Connection.SelectedPort = "COM3";
 
-        await host.Execution.ExecuteAsync("Тест", "chip-id");
+        await host.Execution.ExecuteAsync("Тест", new[] { "chip-id" });
 
-        var portIndex = host.EspToolService.LastArguments!.IndexOf("--port", StringComparison.Ordinal);
-        var commandIndex = host.EspToolService.LastArguments.IndexOf("chip-id", StringComparison.Ordinal);
+        var arguments = host.EspToolService.LastArguments!.ToList();
+        var portIndex = arguments.IndexOf("--port");
+        var commandIndex = arguments.IndexOf("chip-id");
         portIndex.Should().BeGreaterThanOrEqualTo(0).And.BeLessThan(commandIndex);
     }
 
@@ -141,7 +147,7 @@ public sealed class EspToolExecutionViewModelTests
         var gate = new TaskCompletionSource<EsptoolCommandResult>(TaskCreationOptions.RunContinuationsAsynchronously);
         host.EspToolService.Handler = (_, _, _) => gate.Task;
 
-        var running = host.Execution.ExecuteAsync("Тест", "chip-id");
+        var running = host.Execution.ExecuteAsync("Тест", new[] { "chip-id" });
         host.Execution.IsBusy.Should().BeTrue();
 
         gate.SetResult(EsptoolCommandResult.Success());
@@ -158,8 +164,8 @@ public sealed class EspToolExecutionViewModelTests
         var gate = new TaskCompletionSource<EsptoolCommandResult>(TaskCreationOptions.RunContinuationsAsynchronously);
         host.EspToolService.Handler = (_, _, _) => gate.Task;
 
-        var first = host.Execution.ExecuteAsync("Первая", "chip-id");
-        var second = await host.Execution.ExecuteAsync("Вторая", "flash-id");
+        var first = host.Execution.ExecuteAsync("Первая", new[] { "chip-id" });
+        var second = await host.Execution.ExecuteAsync("Вторая", new[] { "flash-id" });
 
         second.Status.Should().Be(EsptoolCommandStatus.Rejected);
         host.EspToolService.CallCount.Should().Be(1);
@@ -176,7 +182,7 @@ public sealed class EspToolExecutionViewModelTests
         host.EspToolService.Handler = (_, _, _) =>
             Task.FromException<EsptoolCommandResult>(new InvalidOperationException("boom"));
 
-        var result = await host.Execution.ExecuteAsync("Тест", "chip-id");
+        var result = await host.Execution.ExecuteAsync("Тест", new[] { "chip-id" });
 
         result.Status.Should().Be(EsptoolCommandStatus.Failed);
         result.Message.Should().Contain("boom");
@@ -196,7 +202,7 @@ public sealed class EspToolExecutionViewModelTests
             return EsptoolCommandResult.Success();
         };
 
-        var running = host.Execution.ExecuteAsync("Тест", "chip-id");
+        var running = host.Execution.ExecuteAsync("Тест", new[] { "chip-id" });
         await started.Task;
         host.Execution.CancelCommand.Execute(null);
 
@@ -243,5 +249,17 @@ public sealed class EspToolExecutionViewModelTests
         host.Execution.ClearLogCommand.Execute(null);
 
         host.Execution.ConsoleOutput.Should().BeEmpty();
+    }
+
+
+    [Fact(DisplayName = "Аргументы подключения: значения с пробелами остаются отдельным аргументом")]
+    public async Task Execute_PreservesPortAsSingleArgument()
+    {
+        using var host = TestApplicationHost.Create();
+        host.Connection.SelectedPort = "COM PORT 3";
+
+        await host.Execution.ExecuteAsync("Тест", new[] { "chip-id" });
+
+        host.EspToolService.LastArguments.Should().ContainInOrder("--port", "COM PORT 3", "chip-id");
     }
 }
