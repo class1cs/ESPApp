@@ -8,9 +8,6 @@ using CommunityToolkit.Mvvm.Input;
 
 namespace ESPApp.UI.ViewModels;
 
-/// <summary>
-/// Shared connection settings used by the header and all operation pages.
-/// </summary>
 public partial class ConnectionViewModel : ViewModelBase
 {
     public event Action<string>? LogMessage;

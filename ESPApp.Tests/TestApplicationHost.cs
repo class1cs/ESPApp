@@ -6,11 +6,6 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace ESPApp.Tests;
 
-/// <summary>
-/// Builds the real application DI graph while replacing external dependencies
-/// with deterministic test doubles. Tests resolve the ViewModel they actually test
-/// instead of going through MainViewModel or a flattened test facade.
-/// </summary>
 internal sealed class TestApplicationHost : IDisposable
 {
     private readonly ServiceProvider _provider;

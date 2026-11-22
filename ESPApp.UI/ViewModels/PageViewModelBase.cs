@@ -4,10 +4,7 @@ using ESPApp.UI.Services;
 
 namespace ESPApp.UI.ViewModels;
 
-/// <summary>
-/// Common presentation and navigation behavior for a page hosted by MainWindow.
-/// The same ViewModel is used by the sidebar and the page ContentControl.
-/// </summary>
+
 public abstract partial class PageViewModelBase : ViewModelBase
 {
     private readonly IPageNavigationService _navigationService;
