@@ -8,9 +8,6 @@ public enum EsptoolCommandStatus
     Rejected
 }
 
-/// <summary>
-/// Structured result of a single esptool process execution.
-/// </summary>
 public sealed record EsptoolCommandResult(
     EsptoolCommandStatus Status,
     int? ExitCode = null,

@@ -440,13 +440,12 @@ namespace ESPApp.Tests
         {
             // Arrange
             using var host = TestApplicationHost.Create();
-            // Shared connection options belong to ConnectionViewModel.
+            
             host.Connection.SelectedPort = "COM3";
             host.Connection.SelectedChip = "esp32";
             host.Connection.NoStub = true;
             host.Connection.Trace = true;
-
-            // Prepare state on the page that owns it.
+            
             host.Firmware.EraseAll = true;
             host.Firmware.NoCompress = true;
             host.Firmware.Force = true;
@@ -471,7 +470,7 @@ namespace ESPApp.Tests
             host.Tools.ElfOutputPath = "app.bin";
             host.Tools.MergeOutputPath = "merged.bin";
 
-            // Resolve each generated command from the ViewModel that owns the page.
+          
             IAsyncRelayCommand command = commandName switch
             {
                 "FlashCommand" => host.Firmware.FlashCommand,
