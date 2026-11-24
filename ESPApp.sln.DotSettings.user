@@ -6,10 +6,7 @@
   &lt;Solution /&gt;&#xD;
 &lt;/SessionState&gt;</s:String>
 	<s:String x:Key="/Default/Environment/UnitTesting/UnitTestSessionStore/Sessions/=7aa81f00_002Da6c0_002D4ef7_002Da88a_002D8e5b3123e111/@EntryIndexedValue">&lt;SessionState ContinuousTestingMode="0" IsActive="True" Name="All tests from MainViewModelTests.cs" xmlns="urn:schemas-jetbrains-com:jetbrains-ut-session"&gt;&#xD;
-  &lt;Or&gt;&#xD;
-    &lt;ProjectFile&gt;DFEA1186-8EEC-4301-AC27-8704B34F9B02/f:MainViewModelTests.cs&lt;/ProjectFile&gt;&#xD;
-    &lt;ProjectFile&gt;DFEA1186-8EEC-4301-AC27-8704B34F9B02/f:EspToolServiceTests.cs&lt;/ProjectFile&gt;&#xD;
-  &lt;/Or&gt;&#xD;
+  &lt;Project Location="C:\ProjectsOnC#\ESPApp\ESPApp.Tests" Presentation="&amp;lt;ESPApp.Tests&amp;gt;" /&gt;&#xD;
 &lt;/SessionState&gt;</s:String>
 	
 	

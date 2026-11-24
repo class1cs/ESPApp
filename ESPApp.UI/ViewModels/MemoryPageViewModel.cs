@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using ESPApp.UI.Services;
 
 namespace ESPApp.UI.ViewModels;
 
@@ -9,8 +10,8 @@ public partial class MemoryPageViewModel : PageViewModelBase
 {
     private readonly ConnectionViewModel _connection;
 
-    public MemoryPageViewModel(ConnectionViewModel connection, EspToolExecutionViewModel execution)
-        : base("Память", "Чтение, стирание и защита flash", "▦")
+    public MemoryPageViewModel(ConnectionViewModel connection, EspToolExecutionViewModel execution, IPageNavigationService navigationService)
+        : base("Память", "Чтение, стирание и защита flash", "▦", navigationService)
     {
         _connection = connection;
         Execution = execution;
@@ -30,7 +31,9 @@ public partial class MemoryPageViewModel : PageViewModelBase
 
     [RelayCommand]
     private async Task EraseFlashAsync() =>
-        await Execution.ExecuteAsync($"[{_connection.SelectedPort}] Полное стирание памяти чипа...", "erase-flash");
+        await Execution.ExecuteAsync(
+            $"[{_connection.SelectedPort}] Полное стирание памяти чипа...",
+            new[] { "erase-flash" });
 
     [RelayCommand]
     private async Task EraseRegionAsync()
@@ -38,7 +41,7 @@ public partial class MemoryPageViewModel : PageViewModelBase
         if (!Execution.Require((EraseRegionAddress, "адрес"), (EraseRegionSize, "размер"))) return;
         await Execution.ExecuteAsync(
             $"[{_connection.SelectedPort}] Стирание региона {EraseRegionAddress}...",
-            $"erase-region {EraseRegionAddress.Trim()} {EraseRegionSize.Trim()}");
+            new[] { "erase-region", EraseRegionAddress.Trim(), EraseRegionSize.Trim() });
     }
 
     [RelayCommand]
@@ -47,23 +50,29 @@ public partial class MemoryPageViewModel : PageViewModelBase
         if (!Execution.Require((ReadAddress, "адрес"), (ReadSize, "размер"), (ReadPath, "файл"))) return;
         await Execution.ExecuteAsync(
             $"[{_connection.SelectedPort}] Чтение flash в файл...",
-            $"read-flash {ReadAddress.Trim()} {ReadSize.Trim()} {CommandText.Quote(ReadPath)}");
+            new[] { "read-flash", ReadAddress.Trim(), ReadSize.Trim(), ReadPath.Trim() });
     }
 
     [RelayCommand]
     private async Task ReadFlashStatusAsync() =>
         await Execution.ExecuteAsync(
             $"[{_connection.SelectedPort}] Чтение регистра статуса...",
-            $"read-flash-status --bytes {SelectedStatusBytes}");
+            new[] { "read-flash-status", "--bytes", SelectedStatusBytes.Trim() });
 
     [RelayCommand]
     private async Task WriteFlashStatusAsync()
     {
         if (!Execution.Require((StatusValue, "значение"))) return;
-        var command = new System.Text.StringBuilder("write-flash-status");
-        if (StatusNonVolatile) command.Append(" --non-volatile");
-        command.Append($" --bytes {SelectedStatusBytes} {StatusValue.Trim()}");
-        await Execution.ExecuteAsync($"[{_connection.SelectedPort}] Запись регистра статуса...", command.ToString());
+
+        var commandArguments = new List<string> { "write-flash-status" };
+        if (StatusNonVolatile) commandArguments.Add("--non-volatile");
+        commandArguments.Add("--bytes");
+        commandArguments.Add(SelectedStatusBytes.Trim());
+        commandArguments.Add(StatusValue.Trim());
+
+        await Execution.ExecuteAsync(
+            $"[{_connection.SelectedPort}] Запись регистра статуса...",
+            commandArguments);
     }
 
     [RelayCommand]

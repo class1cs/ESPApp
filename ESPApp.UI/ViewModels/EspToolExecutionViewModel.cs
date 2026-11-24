@@ -1,4 +1,3 @@
-
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -48,10 +47,19 @@ public partial class EspToolExecutionViewModel : ViewModelBase
 
     public async Task<EsptoolCommandResult> ExecuteAsync(
         string title,
-        string command,
+        IReadOnlyList<string> commandArguments,
         bool needsPort = true,
         bool needsChip = false)
     {
+        ArgumentNullException.ThrowIfNull(commandArguments);
+
+        if (commandArguments.Count == 0 || string.IsNullOrWhiteSpace(commandArguments[0]))
+        {
+            const string message = "Не указана команда esptool.";
+            AppendLog($"Ошибка: {message}");
+            return EsptoolCommandResult.Rejected(message);
+        }
+
         if (IsBusy)
         {
             const string message = "Другая операция уже выполняется.";
@@ -79,7 +87,8 @@ public partial class EspToolExecutionViewModel : ViewModelBase
 
         try
         {
-            var arguments = $"{BuildGlobalArguments(needsPort)} {command}".Trim();
+            var arguments = BuildGlobalArguments(needsPort).ToList();
+            arguments.AddRange(commandArguments);
             return await _espToolService.ExecuteCommandAsync(arguments, AppendLog, _cts.Token);
         }
         catch (OperationCanceledException)
@@ -117,28 +126,34 @@ public partial class EspToolExecutionViewModel : ViewModelBase
         return false;
     }
 
-    public string BuildGlobalArguments(bool online)
+    public IReadOnlyList<string> BuildGlobalArguments(bool online)
     {
-        var parts = new List<string>();
+        var arguments = new List<string>();
 
         if (_connection.SelectedChip != "auto")
         {
-            parts.Add($"--chip {_connection.SelectedChip}");
+            arguments.Add("--chip");
+            arguments.Add(_connection.SelectedChip);
         }
 
         if (online)
         {
-            parts.Add($"--port {_connection.SelectedPort}");
-            parts.Add($"--baud {_connection.SelectedBaud}");
-            parts.Add($"--before {_connection.SelectedBefore}");
-            parts.Add($"--after {_connection.SelectedAfter}");
-            parts.Add($"--connect-attempts {Math.Max(0, _connection.ConnectAttempts)}");
+            arguments.Add("--port");
+            arguments.Add(_connection.SelectedPort ?? string.Empty);
+            arguments.Add("--baud");
+            arguments.Add(_connection.SelectedBaud);
+            arguments.Add("--before");
+            arguments.Add(_connection.SelectedBefore);
+            arguments.Add("--after");
+            arguments.Add(_connection.SelectedAfter);
+            arguments.Add("--connect-attempts");
+            arguments.Add(Math.Max(0, _connection.ConnectAttempts).ToString(System.Globalization.CultureInfo.InvariantCulture));
 
-            if (_connection.NoStub) parts.Add("--no-stub");
-            if (_connection.Trace) parts.Add("--trace");
+            if (_connection.NoStub) arguments.Add("--no-stub");
+            if (_connection.Trace) arguments.Add("--trace");
         }
 
-        return string.Join(" ", parts);
+        return arguments;
     }
 
     public void AppendLog(string message)

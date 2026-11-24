@@ -3,7 +3,6 @@ using CommunityToolkit.Mvvm.Input;
 using ESPApp.Infrastructure.Interfaces;
 using ESPApp.Infrastructure.Models;
 using ESPApp.Infrastructure.Services;
-using ESPApp.UI.ViewModels;
 using FluentAssertions;
 
 namespace ESPApp.Tests
@@ -12,7 +11,7 @@ namespace ESPApp.Tests
     {
         public static async Task<List<string>> RunAsync(
             IEspToolService service,
-            string arguments,
+            IReadOnlyList<string> arguments,
             CancellationToken cancellationToken = default)
         {
             var lines = new List<string>();
@@ -44,7 +43,7 @@ namespace ESPApp.Tests
 
         private static async Task<bool> CheckAsync()
         {
-            var lines = await Runner.RunAsync(new EspToolService(), "version");
+            var lines = await Runner.RunAsync(new EspToolService(), new[] { "version" });
             return lines.Contains("Готово.");
         }
     }
@@ -64,9 +63,15 @@ namespace ESPApp.Tests
             }
         }
 
-        public FakePython(int exitCode = 0, int probeExitCode = 0, int sleepSeconds = 0, int outputLines = 0)
+        public FakePython(
+            int exitCode = 0,
+            int probeExitCode = 0,
+            int sleepSeconds = 0,
+            int outputLines = 0,
+            bool directoryWithSpaces = false)
         {
-            _directory = Path.Combine(Path.GetTempPath(), "fake-python-" + Guid.NewGuid().ToString("N"));
+            var directoryName = directoryWithSpaces ? "fake python-" : "fake-python-";
+            _directory = Path.Combine(Path.GetTempPath(), directoryName + Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(_directory);
 
             if (OperatingSystem.IsWindows())
@@ -82,11 +87,12 @@ namespace ESPApp.Tests
 
                 File.WriteAllText(FilePath,
                     "@echo off\r\n" +
-                    "if \"%~1\"==\"-c\" (\r\n" +
+                    "if \"%~1\"==\"-c\" if \"%~2\"==\"import esptool\" (\r\n" +
                     "  echo x>>\"%~dp0probes.txt\"\r\n" +
                     $"  exit /b {probeExitCode}\r\n" +
                     ")\r\n" +
                     "echo ARGS: %*\r\n" +
+                    "for %%A in (%*) do echo ARG[%%~A]\r\n" +
                     "echo ENV: %PYTHONUNBUFFERED% %PYTHONIOENCODING%\r\n" +
                     "echo some warning>&2\r\n" +
                     $"{linesCommand}\r\n" +
@@ -101,11 +107,12 @@ namespace ESPApp.Tests
 
                 File.WriteAllText(FilePath,
                     "#!/bin/sh\n" +
-                    "if [ \"$1\" = \"-c\" ]; then\n" +
+                    "if [ \"$1\" = \"-c\" ] && [ \"$2\" = \"import esptool\" ]; then\n" +
                     "  echo x >> \"$(dirname \"$0\")/probes.txt\"\n" +
                     $"  exit {probeExitCode}\n" +
                     "fi\n" +
                     "echo \"ARGS: $@\"\n" +
+                    "for arg do printf 'ARG[%s]\\n' \"$arg\"; done\n" +
                     "echo \"ENV: $PYTHONUNBUFFERED $PYTHONIOENCODING\"\n" +
                     "echo \"some warning\" 1>&2\n" +
                     $"i=1; while [ $i -le {outputLines} ]; do echo \"LINE $i\"; i=$((i+1)); done\n" +
@@ -133,7 +140,9 @@ namespace ESPApp.Tests
     {
         public string Folder { get; }
 
-        public string Arguments => OperatingSystem.IsWindows() ? "/c echo BUNDLED_OK" : "run";
+        public IReadOnlyList<string> Arguments => OperatingSystem.IsWindows()
+            ? new[] { "/c", "echo", "BUNDLED_OK" }
+            : new[] { "run" };
 
         public FakeBundled()
         {
@@ -167,20 +176,6 @@ namespace ESPApp.Tests
         }
     }
 
-    public sealed class RecordingService : IEspToolService
-    {
-        public string? LastArguments { get; private set; }
-
-        public Task<EsptoolCommandResult> ExecuteCommandAsync(
-            string arguments,
-            Action<string> onOutputLine,
-            CancellationToken cancellationToken = default)
-        {
-            LastArguments = arguments;
-            return Task.FromResult(EsptoolCommandResult.Success());
-        }
-    }
-
     [Trait("Category", "Integration")]
     public class EspToolServiceTests
     {
@@ -197,12 +192,36 @@ namespace ESPApp.Tests
             // Act
             var lines = new List<string>();
             var result = await service.ExecuteCommandAsync(
-                "--port COM3 chip-id", lines.Add);
+                new[] { "--port", "COM3", "chip-id" }, lines.Add);
 
             // Assert
             lines.Should().Contain("ARGS: -u -m esptool --port COM3 chip-id");
+            lines.Should().Contain("ARG[-u]");
+            lines.Should().Contain("ARG[-m]");
+            lines.Should().Contain("ARG[esptool]");
+            lines.Should().Contain("ARG[--port]");
+            lines.Should().Contain("ARG[COM3]");
+            lines.Should().Contain("ARG[chip-id]");
             lines.Should().Contain("Готово.");
             result.Status.Should().Be(EsptoolCommandStatus.Succeeded);
+        }
+
+        [Fact(DisplayName = "Запуск: путь с пробелами передаётся одним аргументом, а путь к Python тоже может содержать пробелы")]
+        public async Task Execute_PreservesArgumentsAndLauncherPathsWithSpaces()
+        {
+            using var fake = new FakePython(directoryWithSpaces: true);
+            var service = new EspToolService(fake.FilePath, NoBundled);
+            const string imagePath = "C:/firmware build/boot image.bin";
+
+            var lines = await Runner.RunAsync(service, new[] { "load-ram", imagePath });
+
+            lines.Should().Contain("ARG[-u]");
+            lines.Should().Contain("ARG[-m]");
+            lines.Should().Contain("ARG[esptool]");
+            lines.Should().Contain("ARG[load-ram]");
+            lines.Should().Contain($"ARG[{imagePath}]");
+            lines.Should().NotContain("ARG[C:/firmware]");
+            lines.Should().NotContain("ARG[build/boot]");
         }
 
         [Fact(DisplayName = "Запуск: вывод ошибок esptool получает префикс [ERR]")]
@@ -213,7 +232,7 @@ namespace ESPApp.Tests
             var service = new EspToolService(fake.FilePath, NoBundled);
 
             // Act
-            var lines = await Runner.RunAsync(service, "version");
+            var lines = await Runner.RunAsync(service, new[] { "version" });
 
             // Assert
             lines.Should().Contain("[ERR] some warning");
@@ -227,7 +246,7 @@ namespace ESPApp.Tests
             var service = new EspToolService(fake.FilePath, NoBundled);
 
             // Act
-            var lines = await Runner.RunAsync(service, "version");
+            var lines = await Runner.RunAsync(service, new[] { "version" });
 
             // Assert
             lines.Should().Contain("ENV: 1 utf-8");
@@ -242,7 +261,7 @@ namespace ESPApp.Tests
 
             // Act
             var lines = new List<string>();
-            var result = await service.ExecuteCommandAsync("chip-id", lines.Add);
+            var result = await service.ExecuteCommandAsync(new[] { "chip-id" }, lines.Add);
 
             // Assert
             lines.Should().Contain(l => l.Contains("код: 3"));
@@ -260,7 +279,7 @@ namespace ESPApp.Tests
             var service = new EspToolService(fake.FilePath, NoBundled);
 
             // Act
-            var lines = await Runner.RunAsync(service, "version");
+            var lines = await Runner.RunAsync(service, new[] { "version" });
 
             // Assert
             var numbered = lines.Where(l => l.StartsWith("LINE ")).ToList();
@@ -276,7 +295,7 @@ namespace ESPApp.Tests
             var service = new EspToolService(fake.FilePath, NoBundled);
 
             // Act
-            var lines = await Runner.RunAsync(service, "version");
+            var lines = await Runner.RunAsync(service, new[] { "version" });
 
             // Assert
             lines.Should().Contain(l => l.Contains("esptool не найден"));
@@ -289,7 +308,7 @@ namespace ESPApp.Tests
             var service = new EspToolService("no-such-python-xyz", NoBundled);
 
             // Act
-            var lines = await Runner.RunAsync(service, "version");
+            var lines = await Runner.RunAsync(service, new[] { "version" });
 
             // Assert
             lines.Should().Contain(l => l.Contains("esptool не найден"));
@@ -304,7 +323,7 @@ namespace ESPApp.Tests
             var service = new EspToolService(fake.FilePath, bundled.Folder);
 
             // Act
-            var lines = await Runner.RunAsync(service, "--port COM3 chip-id");
+            var lines = await Runner.RunAsync(service, new[] { "--port", "COM3", "chip-id" });
 
             // Assert
             lines.Should().Contain("ARGS: -u -m esptool --port COM3 chip-id");
@@ -350,8 +369,8 @@ namespace ESPApp.Tests
             var service = new EspToolService(fake.FilePath, NoBundled);
 
             // Act
-            await Runner.RunAsync(service, "version");
-            await Runner.RunAsync(service, "version");
+            await Runner.RunAsync(service, new[] { "version" });
+            await Runner.RunAsync(service, new[] { "version" });
 
             // Assert
             fake.ProbeCount.Should().Be(1);
@@ -367,7 +386,7 @@ namespace ESPApp.Tests
             var stopwatch = Stopwatch.StartNew();
 
             // Act
-            var lines = await Runner.RunAsync(service, "chip-id", cts.Token);
+            var lines = await Runner.RunAsync(service, new[] { "chip-id" }, cts.Token);
             stopwatch.Stop();
 
             // Assert
@@ -380,7 +399,7 @@ namespace ESPApp.Tests
     [Trait("Requires", "esptool")]
     public class EsptoolContractTests
     {
-        private static async Task<string> HelpAsync(string arguments)
+        private static async Task<string> HelpAsync(IReadOnlyList<string> arguments)
         {
             // Arrange
             Skip.IfNot(
@@ -420,69 +439,65 @@ namespace ESPApp.Tests
         public async Task ViewModelCommand_IsAcceptedByRealEsptool(string commandName)
         {
             // Arrange
-            var recorder = new RecordingService();
-            var vm = new MainViewModel(recorder);
+            using var host = TestApplicationHost.Create();
+            // Shared connection options belong to ConnectionViewModel.
+            host.Connection.SelectedPort = "COM3";
+            host.Connection.SelectedChip = "esp32";
+            host.Connection.NoStub = true;
+            host.Connection.Trace = true;
 
-            // Shared connection options now belong to ConnectionViewModel.
-            vm.Connection.SelectedPort = "COM3";
-            vm.Connection.SelectedChip = "esp32";
-            vm.Connection.NoStub = true;
-            vm.Connection.Trace = true;
+            // Prepare state on the page that owns it.
+            host.Firmware.EraseAll = true;
+            host.Firmware.NoCompress = true;
+            host.Firmware.Force = true;
+            host.Firmware.VerifyDiff = true;
+            host.Firmware.FlashItems[0].FilePath = "boot.bin";
 
-            // Firmware page state.
-            vm.Firmware.EraseAll = true;
-            vm.Firmware.NoCompress = true;
-            vm.Firmware.Force = true;
-            vm.Firmware.VerifyDiff = true;
-            vm.Firmware.FlashItems[0].FilePath = "boot.bin";
+            host.Memory.EraseRegionAddress = "0x10000";
+            host.Memory.EraseRegionSize = "0x1000";
+            host.Memory.ReadPath = "backup.bin";
+            host.Memory.StatusValue = "0x40";
+            host.Memory.StatusNonVolatile = true;
 
-            // Memory page state.
-            vm.Memory.EraseRegionAddress = "0x10000";
-            vm.Memory.EraseRegionSize = "0x1000";
-            vm.Memory.ReadPath = "backup.bin";
-            vm.Memory.StatusValue = "0x40";
-            vm.Memory.StatusNonVolatile = true;
-
-            // Tools page state.
-            vm.Tools.MemAddress = "0x3ff00000";
-            vm.Tools.MemValue = "0x1";
-            vm.Tools.MemMask = "0xff";
-            vm.Tools.DumpAddress = "0x40000000";
-            vm.Tools.DumpSize = "0x1000";
-            vm.Tools.DumpPath = "dump.bin";
-            vm.Tools.LoadRamPath = "app.bin";
-            vm.Tools.ImageInfoPath = "fw.bin";
-            vm.Tools.ElfPath = "app.elf";
-            vm.Tools.ElfOutputPath = "app.bin";
-            vm.Tools.MergeOutputPath = "merged.bin";
+            host.Tools.MemAddress = "0x3ff00000";
+            host.Tools.MemValue = "0x1";
+            host.Tools.MemMask = "0xff";
+            host.Tools.DumpAddress = "0x40000000";
+            host.Tools.DumpSize = "0x1000";
+            host.Tools.DumpPath = "dump.bin";
+            host.Tools.LoadRamPath = "app.bin";
+            host.Tools.ImageInfoPath = "fw.bin";
+            host.Tools.ElfPath = "app.elf";
+            host.Tools.ElfOutputPath = "app.bin";
+            host.Tools.MergeOutputPath = "merged.bin";
 
             // Resolve each generated command from the ViewModel that owns the page.
             IAsyncRelayCommand command = commandName switch
             {
-                "FlashCommand" => vm.Firmware.FlashCommand,
-                "VerifyFlashCommand" => vm.Firmware.VerifyFlashCommand,
+                "FlashCommand" => host.Firmware.FlashCommand,
+                "VerifyFlashCommand" => host.Firmware.VerifyFlashCommand,
 
-                "EraseFlashCommand" => vm.Memory.EraseFlashCommand,
-                "EraseRegionCommand" => vm.Memory.EraseRegionCommand,
-                "ReadFlashCommand" => vm.Memory.ReadFlashCommand,
-                "ReadFlashStatusCommand" => vm.Memory.ReadFlashStatusCommand,
-                "WriteFlashStatusCommand" => vm.Memory.WriteFlashStatusCommand,
+                "EraseFlashCommand" => host.Memory.EraseFlashCommand,
+                "EraseRegionCommand" => host.Memory.EraseRegionCommand,
+                "ReadFlashCommand" => host.Memory.ReadFlashCommand,
+                "ReadFlashStatusCommand" => host.Memory.ReadFlashStatusCommand,
+                "WriteFlashStatusCommand" => host.Memory.WriteFlashStatusCommand,
 
-                "ChipIdCommand" => vm.ChipInfo.ChipIdCommand,
-                "FlashIdCommand" => vm.ChipInfo.FlashIdCommand,
-                "ReadMacCommand" => vm.ChipInfo.ReadMacCommand,
-                "SecurityInfoCommand" => vm.ChipInfo.SecurityInfoCommand,
-                "VersionCommand" => vm.ChipInfo.VersionCommand,
-                "ReadSfdpCommand" => vm.ChipInfo.ReadSfdpCommand,
+                "ChipIdCommand" => host.ChipInfo.ChipIdCommand,
+                "FlashIdCommand" => host.ChipInfo.FlashIdCommand,
+                "ReadMacCommand" => host.ChipInfo.ReadMacCommand,
+                "SecurityInfoCommand" => host.ChipInfo.SecurityInfoCommand,
+                "VersionCommand" => host.ChipInfo.VersionCommand,
+                "ReadSfdpCommand" => host.ChipInfo.ReadSfdpCommand,
 
-                "ReadMemCommand" => vm.Tools.ReadMemCommand,
-                "WriteMemCommand" => vm.Tools.WriteMemCommand,
-                "DumpMemCommand" => vm.Tools.DumpMemCommand,
-                "LoadRamCommand" => vm.Tools.LoadRamCommand,
-                "RunCodeCommand" => vm.Tools.RunCodeCommand,
-                "ImageInfoCommand" => vm.Tools.ImageInfoCommand,
-                "Elf2ImageCommand" => vm.Tools.Elf2ImageCommand,
-                "MergeBinCommand" => vm.Tools.MergeBinCommand,
+                "ReadMemCommand" => host.Tools.ReadMemCommand,
+                "WriteMemCommand" => host.Tools.WriteMemCommand,
+                "DumpMemCommand" => host.Tools.DumpMemCommand,
+                "LoadRamCommand" => host.Tools.LoadRamCommand,
+                "RunCodeCommand" => host.Tools.RunCodeCommand,
+                "ImageInfoCommand" => host.Tools.ImageInfoCommand,
+                "Elf2ImageCommand" => host.Tools.Elf2ImageCommand,
+                "MergeBinCommand" => host.Tools.MergeBinCommand,
 
                 _ => throw new ArgumentOutOfRangeException(
                     nameof(commandName), commandName, "Неизвестная команда ViewModel.")
@@ -491,7 +506,8 @@ namespace ESPApp.Tests
             await command.ExecuteAsync(null);
 
             // Act
-            var help = await HelpAsync($"{recorder.LastArguments} --help");
+            var helpArguments = host.EspToolService.LastArguments!.Concat(new[] { "--help" }).ToArray();
+            var help = await HelpAsync(helpArguments);
 
             // Assert
             help.Should().NotBeEmpty();
