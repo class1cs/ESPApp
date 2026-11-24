@@ -8,6 +8,7 @@
         <entry key="ESPApp.UI/Views/ChipInfoPage.axaml" value="ESPApp.Tests/ESPApp.Tests.csproj" />
         <entry key="ESPApp.UI/Views/FirmwarePage.axaml" value="ESPApp.Tests/ESPApp.Tests.csproj" />
         <entry key="ESPApp.UI/Views/MainWindow.axaml" value="ESPApp.UI/ESPApp.UI.csproj" />
+        <entry key="ESPApp.UI/Views/MemoryPage.axaml" value="ESPApp.Tests/ESPApp.Tests.csproj" />
         <entry key="ESPApp.UI/Views/ToolsPage.axaml" value="ESPApp.Tests/ESPApp.Tests.csproj" />
         <entry key="ESPApp.UI/Views/WelcomeView.axaml" value="ESPApp.Tests/ESPApp.Tests.csproj" />
       </map>

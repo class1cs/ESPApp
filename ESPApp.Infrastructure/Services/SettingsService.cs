@@ -4,6 +4,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using ESPApp.Infrastructure.Interfaces;
 using ESPApp.Infrastructure.Models;
+using ESPApp.Infrastructure.Serialization;
 
 namespace ESPApp.Infrastructure.Services
 {
@@ -35,7 +36,9 @@ namespace ESPApp.Infrastructure.Services
                 }
 
                 var json = File.ReadAllText(_filePath);
-                return JsonSerializer.Deserialize<AppSettings>(json, Options) ?? new AppSettings();
+                return JsonSerializer.Deserialize(
+                    json,
+                    AppSettingsJsonContext.Default.AppSettings) ?? new AppSettings();
             }
             catch
             {
@@ -48,7 +51,9 @@ namespace ESPApp.Infrastructure.Services
             try
             {
                 Directory.CreateDirectory(Path.GetDirectoryName(_filePath)!);
-                File.WriteAllText(_filePath, JsonSerializer.Serialize(settings, Options));
+                File.WriteAllText(_filePath, JsonSerializer.Serialize(
+                    settings,
+                    AppSettingsJsonContext.Default.AppSettings));
                 return true;
             }
             catch
