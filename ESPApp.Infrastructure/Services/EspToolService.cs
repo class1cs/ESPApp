@@ -69,7 +69,6 @@ namespace ESPApp.Infrastructure.Services
                 process.BeginOutputReadLine();
                 process.BeginErrorReadLine();
                 await process.WaitForExitAsync(timeout.Token);
-                process.WaitForExit();
             }
             catch (OperationCanceledException)
             {
@@ -168,8 +167,7 @@ namespace ESPApp.Infrastructure.Services
                 process.BeginErrorReadLine();
 
                 await process.WaitForExitAsync(cancellationToken);
-                // Ensure asynchronous output handlers have drained before reporting completion.
-                process.WaitForExit();
+
 
                 if (process.ExitCode == 0)
                 {
